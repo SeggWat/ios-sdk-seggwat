@@ -1,0 +1,38 @@
+/* SeggWat iOS SDK - Deutsch */
+
+/* Feedback-Formular */
+"button_text" = "Feedback";
+"modal_title" = "Feedback senden";
+"modal_subtitle" = "Wir freuen uns auf Ihr Feedback!";
+"label_feedback" = "Ihr Feedback";
+"placeholder_message" = "Sagen Sie uns, was Sie denken...";
+"button_cancel" = "Abbrechen";
+"button_submit" = "Feedback senden";
+"button_sending" = "Wird gesendet...";
+"button_close" = "Schließen";
+"success_message" = "Vielen Dank für Ihr Feedback!";
+"error_message" = "Entschuldigung, beim Senden Ihres Feedbacks ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut.";
+
+/* Screenshot */
+"screenshot_button_label" = "Screenshot";
+"screenshot_button_tooltip" = "Screenshot aufnehmen und kommentieren";
+"screenshot_modal_title" = "Screenshot kommentieren";
+"screenshot_tool_pen" = "Stift";
+"screenshot_tool_arrow" = "Pfeil";
+"screenshot_tool_rectangle" = "Rechteck";
+"screenshot_tool_text" = "Text";
+"screenshot_tool_blackout" = "Schwärzen";
+"screenshot_color" = "Farbe";
+"screenshot_undo" = "Rückgängig";
+"screenshot_redo" = "Wiederholen";
+"screenshot_clear" = "Alles löschen";
+"screenshot_cancel" = "Abbrechen";
+"screenshot_submit" = "An Feedback anhängen";
+"screenshot_done" = "Fertig";
+"screenshot_capturing" = "Wird aufgenommen...";
+"screenshot_error_capture" = "Screenshot konnte nicht aufgenommen werden. Bitte versuchen Sie es erneut.";
+"screenshot_error_size" = "Screenshot zu groß (max. %dMB). Versuchen Sie, Anmerkungen zu reduzieren.";
+"remove_screenshot" = "Screenshot entfernen";
+
+/* Branding */
+"powered_by" = "Unterstützt von SeggWat";

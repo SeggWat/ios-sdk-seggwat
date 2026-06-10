@@ -1,0 +1,38 @@
+/* SeggWat iOS SDK - English */
+
+/* Feedback form */
+"button_text" = "Feedback";
+"modal_title" = "Send Feedback";
+"modal_subtitle" = "We'd love to hear your thoughts!";
+"label_feedback" = "Your Feedback";
+"placeholder_message" = "Tell us what you think...";
+"button_cancel" = "Cancel";
+"button_submit" = "Send Feedback";
+"button_sending" = "Sending...";
+"button_close" = "Close";
+"success_message" = "Thank you for your feedback!";
+"error_message" = "Sorry, there was an error sending your feedback. Please try again.";
+
+/* Screenshot */
+"screenshot_button_label" = "Screenshot";
+"screenshot_button_tooltip" = "Capture and annotate screenshot";
+"screenshot_modal_title" = "Annotate Screenshot";
+"screenshot_tool_pen" = "Pen";
+"screenshot_tool_arrow" = "Arrow";
+"screenshot_tool_rectangle" = "Rectangle";
+"screenshot_tool_text" = "Text";
+"screenshot_tool_blackout" = "Blackout";
+"screenshot_color" = "Color";
+"screenshot_undo" = "Undo";
+"screenshot_redo" = "Redo";
+"screenshot_clear" = "Clear All";
+"screenshot_cancel" = "Cancel";
+"screenshot_submit" = "Attach to Feedback";
+"screenshot_done" = "Done";
+"screenshot_capturing" = "Capturing screenshot...";
+"screenshot_error_capture" = "Failed to capture screenshot. Please try again.";
+"screenshot_error_size" = "Screenshot too large (max %dMB). Try reducing annotations.";
+"remove_screenshot" = "Remove screenshot";
+
+/* Branding */
+"powered_by" = "Powered by SeggWat";

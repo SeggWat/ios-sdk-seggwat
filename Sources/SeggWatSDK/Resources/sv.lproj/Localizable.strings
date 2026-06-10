@@ -1,0 +1,38 @@
+/* SeggWat iOS SDK - Svenska */
+
+/* Feedback-formulär */
+"button_text" = "Feedback";
+"modal_title" = "Skicka feedback";
+"modal_subtitle" = "Vi skulle gärna höra dina tankar!";
+"label_feedback" = "Din feedback";
+"placeholder_message" = "Berätta vad du tycker...";
+"button_cancel" = "Avbryt";
+"button_submit" = "Skicka feedback";
+"button_sending" = "Skickar...";
+"button_close" = "Stäng";
+"success_message" = "Tack för din feedback!";
+"error_message" = "Tyvärr uppstod ett fel när din feedback skickades. Försök igen.";
+
+/* Screenshot */
+"screenshot_button_label" = "Skärmbild";
+"screenshot_button_tooltip" = "Ta och annotera skärmbild";
+"screenshot_modal_title" = "Annotera skärmbild";
+"screenshot_tool_pen" = "Penna";
+"screenshot_tool_arrow" = "Pil";
+"screenshot_tool_rectangle" = "Rektangel";
+"screenshot_tool_text" = "Text";
+"screenshot_tool_blackout" = "Mörklägg";
+"screenshot_color" = "Färg";
+"screenshot_undo" = "Ångra";
+"screenshot_redo" = "Gör om";
+"screenshot_clear" = "Rensa alla";
+"screenshot_cancel" = "Avbryt";
+"screenshot_submit" = "Bifoga till feedback";
+"screenshot_done" = "Klar";
+"screenshot_capturing" = "Tar skärmbild...";
+"screenshot_error_capture" = "Kunde inte ta skärmbild. Försök igen.";
+"screenshot_error_size" = "Skärmbild för stor (max %dMB). Försök minska anteckningar.";
+"remove_screenshot" = "Ta bort skärmbild";
+
+/* Branding */
+"powered_by" = "Drivs av SeggWat";
