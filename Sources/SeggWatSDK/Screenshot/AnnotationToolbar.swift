@@ -1,5 +1,4 @@
 import SwiftUI
-import PencilKit
 
 /// Available annotation tools.
 enum AnnotationTool: String, CaseIterable, Identifiable {
@@ -13,7 +12,7 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
 
     var systemImage: String {
         switch self {
-        case .pen: return "pencil.tip"
+        case .pen: return "scribble.variable"
         case .arrow: return "arrow.up.right"
         case .rectangle: return "rectangle"
         case .text: return "textformat"
@@ -36,7 +35,7 @@ enum AnnotationTool: String, CaseIterable, Identifiable {
 enum AnnotationColor: CaseIterable, Identifiable {
     case red, green, blue, yellow, magenta, black
 
-    var id: String { color.description }
+    var id: String { "\(self)" }
 
     var color: Color {
         switch self {
@@ -48,20 +47,21 @@ enum AnnotationColor: CaseIterable, Identifiable {
         case .black: return .black
         }
     }
-
-    var uiColor: UIColor {
-        switch self {
-        case .red: return .red
-        case .green: return .green
-        case .blue: return .blue
-        case .yellow: return .yellow
-        case .magenta: return .magenta
-        case .black: return .black
-        }
-    }
 }
 
-/// Toolbar for selecting annotation tools and colors.
+/// A single committed (or in-progress) annotation, stored in canvas display coordinates.
+struct Annotation: Identifiable {
+    let id = UUID()
+    var tool: AnnotationTool
+    var color: AnnotationColor
+    var lineWidth: CGFloat
+    var points: [CGPoint] = []   // pen
+    var start: CGPoint = .zero   // arrow / rectangle / blackout / text anchor
+    var end: CGPoint = .zero     // arrow / rectangle / blackout
+    var text: String = ""        // text
+}
+
+/// Tool + color + stroke-width selector shown beneath the canvas.
 struct AnnotationToolbar: View {
     @Binding var selectedTool: AnnotationTool
     @Binding var selectedColor: AnnotationColor
@@ -69,65 +69,72 @@ struct AnnotationToolbar: View {
     @EnvironmentObject private var seggwat: SeggWat
 
     var body: some View {
-        VStack(spacing: 12) {
-            // Tool selection
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(AnnotationTool.allCases) { tool in
-                        Button {
-                            selectedTool = tool
-                        } label: {
-                            VStack(spacing: 4) {
-                                Image(systemName: tool.systemImage)
-                                    .font(.system(size: 18))
-                                Text(tool.localizedName(language: seggwat.options.language))
-                                    .font(.caption2)
-                            }
-                            .frame(minWidth: 52, minHeight: 48)
-                            .foregroundColor(selectedTool == tool ? .white : .primary)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(selectedTool == tool ? seggwat.options.buttonColor : Color(.systemGray5))
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
+        VStack(spacing: 14) {
+            // Tools — equal width across the row
+            HStack(spacing: 8) {
+                ForEach(AnnotationTool.allCases) { tool in
+                    toolButton(tool)
                 }
-                .padding(.horizontal)
             }
 
-            // Color selection
-            HStack(spacing: 12) {
-                ForEach(AnnotationColor.allCases) { preset in
-                    Button {
-                        selectedColor = preset
-                    } label: {
-                        Circle()
-                            .fill(preset.color)
-                            .frame(width: 28, height: 28)
-                            .overlay(
-                                Circle()
-                                    .stroke(Color.primary, lineWidth: selectedColor == preset ? 2 : 0)
-                                    .padding(-2)
-                            )
+            // Colors — evenly distributed across the row
+            HStack {
+                ForEach(Array(AnnotationColor.allCases.enumerated()), id: \.element.id) { index, preset in
+                    colorButton(preset)
+                    if index < AnnotationColor.allCases.count - 1 {
+                        Spacer(minLength: 0)
                     }
-                    .buttonStyle(.plain)
                 }
-
-                Spacer()
-
-                // Stroke width
-                Picker("", selection: $strokeWidth) {
-                    Text(seggwat.localizedString("screenshot_stroke_thin")).tag(CGFloat(2))
-                    Text(seggwat.localizedString("screenshot_stroke_medium")).tag(CGFloat(4))
-                    Text(seggwat.localizedString("screenshot_stroke_thick")).tag(CGFloat(8))
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 180)
             }
-            .padding(.horizontal)
+            .padding(.horizontal, 4)
         }
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
+        .padding(.horizontal)
+        .padding(.top, 12)
+        .padding(.bottom, 6)
+    }
+
+    private func toolButton(_ tool: AnnotationTool) -> some View {
+        let isSelected = selectedTool == tool
+        return Button {
+            selectedTool = tool
+        } label: {
+            VStack(spacing: 5) {
+                Image(systemName: tool.systemImage)
+                    .font(.system(size: 17, weight: .medium))
+                Text(tool.localizedName(language: seggwat.options.language))
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 9)
+            .foregroundColor(isSelected ? .white : .primary)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(isSelected ? seggwat.options.buttonColor : Color(.systemGray5))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func colorButton(_ preset: AnnotationColor) -> some View {
+        let isSelected = selectedColor == preset
+        return Button {
+            selectedColor = preset
+        } label: {
+            Circle()
+                .fill(preset.color)
+                .frame(width: 30, height: 30)
+                .overlay(
+                    Circle().stroke(Color(.systemBackground), lineWidth: 2)
+                )
+                .overlay(
+                    Circle()
+                        .stroke(isSelected ? Color.primary : Color.clear, lineWidth: 2)
+                        .padding(-3)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(preset)")
     }
 }

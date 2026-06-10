@@ -23,6 +23,12 @@
 "screenshot_tool_text" = "Text";
 "screenshot_tool_blackout" = "Blackout";
 "screenshot_color" = "Color";
+"screenshot_stroke_thin" = "Thin";
+"screenshot_stroke_medium" = "Medium";
+"screenshot_stroke_thick" = "Thick";
+"screenshot_text_modal_title" = "Add Text";
+"screenshot_text_modal_placeholder" = "Enter text";
+"screenshot_text_modal_add" = "Add";
 "screenshot_undo" = "Undo";
 "screenshot_redo" = "Redo";
 "screenshot_clear" = "Clear All";

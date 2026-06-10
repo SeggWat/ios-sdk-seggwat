@@ -1,202 +1,339 @@
 import SwiftUI
-import PencilKit
 
-/// Fullscreen annotation editor with PencilKit canvas overlay on a screenshot.
+/// Fullscreen annotation editor: draw pen strokes, arrows, rectangles, text and
+/// blackout boxes on top of a captured screenshot, then flatten to a new image.
 struct AnnotationEditorView: View {
     let baseImage: UIImage
     let onSave: (UIImage) -> Void
     let onCancel: () -> Void
 
     @EnvironmentObject private var seggwat: SeggWat
-    @State private var canvasView = PKCanvasView()
+
     @State private var selectedTool: AnnotationTool = .pen
     @State private var selectedColor: AnnotationColor = .red
     @State private var strokeWidth: CGFloat = 4
-    @State private var undoManager_ = UndoManager()
+
+    @State private var annotations: [Annotation] = []
+    @State private var redoStack: [Annotation] = []
+    @State private var current: Annotation?
+
+    @State private var canvasSize: CGSize = .zero
+
     @State private var showTextInput = false
     @State private var textInput = ""
+    @State private var pendingTextLocation: CGPoint = .zero
+
+    private let strokeOptions: [CGFloat] = [2, 5, 9]
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Button(action: onCancel) {
-                    Text(seggwat.localizedString("screenshot_cancel"))
-                }
-
-                Spacer()
-
-                Text(seggwat.localizedString("screenshot_modal_title"))
-                    .font(.headline)
-
-                Spacer()
-
-                Button {
-                    saveAnnotatedImage()
-                } label: {
-                    Text(seggwat.localizedString("screenshot_done"))
-                        .fontWeight(.semibold)
-                }
-            }
-            .padding()
-            .background(.ultraThinMaterial)
-
-            // Canvas
-            GeometryReader { geometry in
-                let imageSize = baseImage.size
-                let scale = min(
-                    geometry.size.width / imageSize.width,
-                    geometry.size.height / imageSize.height
-                )
-                let scaledSize = CGSize(
-                    width: imageSize.width * scale,
-                    height: imageSize.height * scale
-                )
-
-                ZStack {
-                    Color(.systemBackground)
-
-                    Image(uiImage: baseImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: scaledSize.width, height: scaledSize.height)
-
-                    PencilKitCanvasRepresentable(
-                        canvasView: $canvasView,
-                        tool: pencilKitTool,
-                        undoManager: undoManager_
-                    )
-                    .frame(width: scaledSize.width, height: scaledSize.height)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-
-            // Toolbar
+            header
+            canvas
+            Divider()
             AnnotationToolbar(
                 selectedTool: $selectedTool,
                 selectedColor: $selectedColor,
                 strokeWidth: $strokeWidth
             )
-
-            // Action bar
-            HStack {
-                Button {
-                    undoManager_.undo()
-                } label: {
-                    Label(seggwat.localizedString("screenshot_undo"), systemImage: "arrow.uturn.backward")
-                }
-                .disabled(!undoManager_.canUndo)
-
-                Button {
-                    undoManager_.redo()
-                } label: {
-                    Label(seggwat.localizedString("screenshot_redo"), systemImage: "arrow.uturn.forward")
-                }
-                .disabled(!undoManager_.canRedo)
-
-                Spacer()
-
-                Button(role: .destructive) {
-                    canvasView.drawing = PKDrawing()
-                } label: {
-                    Label(seggwat.localizedString("screenshot_clear"), systemImage: "trash")
-                }
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-            .background(.ultraThinMaterial)
+            actionBar
         }
+        .background(Color(.systemBackground))
         .alert(seggwat.localizedString("screenshot_text_modal_title"), isPresented: $showTextInput) {
             TextField(seggwat.localizedString("screenshot_text_modal_placeholder"), text: $textInput)
-            Button(seggwat.localizedString("screenshot_text_modal_add")) {
-                addTextAnnotation()
-            }
-            Button(seggwat.localizedString("screenshot_cancel"), role: .cancel) {}
-        }
-        .onChange(of: selectedTool) { newTool in
-            if newTool == .text {
-                showTextInput = true
-            }
+            Button(seggwat.localizedString("screenshot_text_modal_add")) { addTextAnnotation() }
+            Button(seggwat.localizedString("screenshot_cancel"), role: .cancel) { textInput = "" }
         }
     }
 
-    private var pencilKitTool: PKTool {
-        let inkColor = selectedColor.uiColor
-        switch selectedTool {
-        case .pen:
-            return PKInkingTool(.pen, color: inkColor, width: strokeWidth)
-        case .arrow:
-            return PKInkingTool(.marker, color: inkColor, width: strokeWidth)
-        case .rectangle:
-            return PKInkingTool(.pen, color: inkColor, width: strokeWidth)
-        case .text:
-            return PKInkingTool(.pen, color: inkColor, width: strokeWidth)
-        case .blackout:
-            return PKInkingTool(.marker, color: .black, width: 30)
+    // MARK: - Header
+
+    private var header: some View {
+        HStack {
+            Button(seggwat.localizedString("screenshot_cancel"), action: onCancel)
+
+            Spacer()
+
+            Text(seggwat.localizedString("screenshot_modal_title"))
+                .font(.headline)
+
+            Spacer()
+
+            Button(action: save) {
+                Text(seggwat.localizedString("screenshot_done"))
+                    .fontWeight(.semibold)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(seggwat.options.buttonColor, in: Capsule())
+                    .foregroundColor(.white)
+            }
         }
+        .padding(.horizontal)
+        .padding(.vertical, 10)
+    }
+
+    // MARK: - Canvas
+
+    private var canvas: some View {
+        GeometryReader { geo in
+            let size = fittedSize(for: baseImage.size, in: geo.size)
+            ZStack {
+                Color(.systemGroupedBackground)
+
+                ZStack {
+                    Image(uiImage: baseImage)
+                        .resizable()
+                        .frame(width: size.width, height: size.height)
+
+                    AnnotationCanvas(annotations: annotations, current: current)
+                        .frame(width: size.width, height: size.height)
+                        .contentShape(Rectangle())
+                        .gesture(drawGesture)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .shadow(color: .black.opacity(0.12), radius: 8, y: 2)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onAppear { canvasSize = size }
+            .onChange(of: geo.size) { _ in canvasSize = size }
+        }
+    }
+
+    private var drawGesture: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                guard selectedTool != .text else { return }
+                if current == nil {
+                    var ann = Annotation(tool: selectedTool, color: selectedColor, lineWidth: strokeWidth)
+                    ann.start = value.startLocation
+                    ann.points = [value.startLocation]
+                    current = ann
+                }
+                current?.end = value.location
+                if selectedTool == .pen {
+                    current?.points.append(value.location)
+                }
+            }
+            .onEnded { value in
+                if selectedTool == .text {
+                    pendingTextLocation = value.location
+                    showTextInput = true
+                    return
+                }
+                if let ann = current, isMeaningful(ann) {
+                    commit(ann)
+                }
+                current = nil
+            }
+    }
+
+    // MARK: - Action bar (stroke width + undo/redo/clear)
+
+    private var actionBar: some View {
+        HStack(spacing: 16) {
+            HStack(spacing: 10) {
+                ForEach(strokeOptions, id: \.self) { width in
+                    Button {
+                        strokeWidth = width
+                    } label: {
+                        Circle()
+                            .fill(strokeWidth == width ? Color.primary : Color(.systemGray3))
+                            .frame(width: width + 6, height: width + 6)
+                            .frame(width: 34, height: 34)
+                            .background(
+                                Circle().fill(strokeWidth == width ? Color(.systemGray5) : .clear)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(strokeLabel(for: width))
+                }
+            }
+
+            Spacer()
+
+            Button(action: undo) {
+                Image(systemName: "arrow.uturn.backward")
+            }
+            .disabled(annotations.isEmpty)
+            .accessibilityLabel(seggwat.localizedString("screenshot_undo"))
+
+            Button(action: redo) {
+                Image(systemName: "arrow.uturn.forward")
+            }
+            .disabled(redoStack.isEmpty)
+            .accessibilityLabel(seggwat.localizedString("screenshot_redo"))
+
+            Button(role: .destructive, action: clear) {
+                Label(seggwat.localizedString("screenshot_clear"), systemImage: "trash")
+                    .labelStyle(.titleAndIcon)
+            }
+            .disabled(annotations.isEmpty && current == nil)
+        }
+        .font(.body)
+        .padding(.horizontal)
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial)
+    }
+
+    private func strokeLabel(for width: CGFloat) -> String {
+        switch width {
+        case strokeOptions.first: return seggwat.localizedString("screenshot_stroke_thin")
+        case strokeOptions.last: return seggwat.localizedString("screenshot_stroke_thick")
+        default: return seggwat.localizedString("screenshot_stroke_medium")
+        }
+    }
+
+    // MARK: - Mutations
+
+    private func commit(_ ann: Annotation) {
+        annotations.append(ann)
+        redoStack.removeAll()
+    }
+
+    private func undo() {
+        guard let last = annotations.popLast() else { return }
+        redoStack.append(last)
+    }
+
+    private func redo() {
+        guard let last = redoStack.popLast() else { return }
+        annotations.append(last)
+    }
+
+    private func clear() {
+        annotations.removeAll()
+        redoStack.removeAll()
+        current = nil
     }
 
     private func addTextAnnotation() {
-        guard !textInput.isEmpty else { return }
-        // For text, we render it onto the PencilKit canvas as an image
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 300, height: 50))
-        let textImage = renderer.image { context in
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 20),
-                .foregroundColor: selectedColor.uiColor
-            ]
-            (textInput as NSString).draw(at: .zero, withAttributes: attrs)
-        }
-
-        // Add as a stroke to the center of the canvas
-        if let cgImage = textImage.cgImage {
-            let _ = cgImage // Text is rendered via PencilKit drawing instead
-        }
-
+        let trimmed = textInput.trimmingCharacters(in: .whitespacesAndNewlines)
         textInput = ""
+        guard !trimmed.isEmpty else { return }
+        var ann = Annotation(tool: .text, color: selectedColor, lineWidth: strokeWidth)
+        ann.text = trimmed
+        ann.start = pendingTextLocation
+        commit(ann)
     }
 
-    private func saveAnnotatedImage() {
-        let imageSize = baseImage.size
-        let renderer = UIGraphicsImageRenderer(size: imageSize)
+    /// Reject accidental zero-size shapes; allow any pen stroke.
+    private func isMeaningful(_ ann: Annotation) -> Bool {
+        switch ann.tool {
+        case .pen:
+            return ann.points.count > 1
+        case .arrow, .rectangle, .blackout:
+            return hypot(ann.end.x - ann.start.x, ann.end.y - ann.start.y) > 6
+        case .text:
+            return false
+        }
+    }
 
-        let annotated = renderer.image { context in
-            // Draw base image
-            baseImage.draw(in: CGRect(origin: .zero, size: imageSize))
+    // MARK: - Flatten to image
 
-            // Draw PencilKit annotations scaled to image size
-            let canvasSize = canvasView.bounds.size
-            guard canvasSize.width > 0, canvasSize.height > 0 else { return }
-            let scaleX = imageSize.width / canvasSize.width
-            let scaleY = imageSize.height / canvasSize.height
-
-            let drawingImage = canvasView.drawing.image(from: canvasView.bounds, scale: 1.0)
-            drawingImage.draw(in: CGRect(
-                origin: .zero,
-                size: CGSize(width: canvasSize.width * scaleX, height: canvasSize.height * scaleY)
-            ))
+    @MainActor private func save() {
+        guard canvasSize.width > 0, canvasSize.height > 0 else {
+            onSave(baseImage)
+            return
         }
 
-        onSave(annotated)
+        let content = ZStack {
+            Image(uiImage: baseImage)
+                .resizable()
+                .frame(width: canvasSize.width, height: canvasSize.height)
+            AnnotationCanvas(annotations: annotations, current: nil)
+                .frame(width: canvasSize.width, height: canvasSize.height)
+        }
+        .frame(width: canvasSize.width, height: canvasSize.height)
+
+        let renderer = ImageRenderer(content: content)
+        // Render at the screenshot's native pixel resolution.
+        renderer.scale = baseImage.scale * baseImage.size.width / canvasSize.width
+
+        onSave(renderer.uiImage ?? baseImage)
+    }
+
+    private func fittedSize(for imageSize: CGSize, in bounds: CGSize) -> CGSize {
+        guard imageSize.width > 0, imageSize.height > 0 else { return .zero }
+        let scale = min(bounds.width / imageSize.width, bounds.height / imageSize.height)
+        return CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
     }
 }
 
-/// UIViewRepresentable wrapper for PKCanvasView.
-struct PencilKitCanvasRepresentable: UIViewRepresentable {
-    @Binding var canvasView: PKCanvasView
-    let tool: PKTool
-    let undoManager: UndoManager
+/// Renders committed annotations plus the in-progress one onto a SwiftUI canvas.
+struct AnnotationCanvas: View {
+    let annotations: [Annotation]
+    let current: Annotation?
 
-    func makeUIView(context: Context) -> PKCanvasView {
-        canvasView.drawingPolicy = .anyInput
-        canvasView.backgroundColor = .clear
-        canvasView.isOpaque = false
-        canvasView.tool = tool
-        canvasView.undoManager?.removeAllActions()
-        return canvasView
+    var body: some View {
+        Canvas { context, _ in
+            for ann in annotations {
+                draw(ann, in: &context)
+            }
+            if let current {
+                draw(current, in: &context)
+            }
+        }
     }
 
-    func updateUIView(_ uiView: PKCanvasView, context: Context) {
-        uiView.tool = tool
+    private func draw(_ ann: Annotation, in context: inout GraphicsContext) {
+        let color = ann.color.color
+        let style = StrokeStyle(lineWidth: ann.lineWidth, lineCap: .round, lineJoin: .round)
+
+        switch ann.tool {
+        case .pen:
+            guard ann.points.count > 1 else { return }
+            var path = Path()
+            path.addLines(ann.points)
+            context.stroke(path, with: .color(color), style: style)
+
+        case .arrow:
+            context.stroke(arrowPath(from: ann.start, to: ann.end, lineWidth: ann.lineWidth),
+                           with: .color(color), style: style)
+
+        case .rectangle:
+            let path = Path(roundedRect: rect(ann.start, ann.end), cornerRadius: 4)
+            context.stroke(path, with: .color(color), style: style)
+
+        case .blackout:
+            context.fill(Path(rect(ann.start, ann.end)), with: .color(.black))
+
+        case .text:
+            guard !ann.text.isEmpty else { return }
+            let resolved = context.resolve(
+                Text(ann.text)
+                    .font(.system(size: textSize(for: ann.lineWidth), weight: .semibold))
+                    .foregroundColor(color)
+            )
+            context.draw(resolved, at: ann.start, anchor: .topLeading)
+        }
+    }
+
+    private func arrowPath(from start: CGPoint, to end: CGPoint, lineWidth: CGFloat) -> Path {
+        var path = Path()
+        path.move(to: start)
+        path.addLine(to: end)
+
+        let angle = atan2(end.y - start.y, end.x - start.x)
+        let headLength = max(14, lineWidth * 3.5)
+        let headAngle = CGFloat.pi / 6
+        path.move(to: end)
+        path.addLine(to: CGPoint(
+            x: end.x - headLength * cos(angle - headAngle),
+            y: end.y - headLength * sin(angle - headAngle)
+        ))
+        path.move(to: end)
+        path.addLine(to: CGPoint(
+            x: end.x - headLength * cos(angle + headAngle),
+            y: end.y - headLength * sin(angle + headAngle)
+        ))
+        return path
+    }
+
+    private func rect(_ a: CGPoint, _ b: CGPoint) -> CGRect {
+        CGRect(x: min(a.x, b.x), y: min(a.y, b.y),
+               width: abs(a.x - b.x), height: abs(a.y - b.y))
+    }
+
+    private func textSize(for lineWidth: CGFloat) -> CGFloat {
+        12 + lineWidth * 2.5
     }
 }

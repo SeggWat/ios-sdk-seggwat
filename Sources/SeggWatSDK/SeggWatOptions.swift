@@ -1,5 +1,13 @@
 import SwiftUI
 
+/// Appearance of the floating feedback button.
+public enum SeggWatButtonStyle: Sendable {
+    /// Compact circular button showing only the icon. Default.
+    case icon
+    /// Pill-shaped button showing the icon and label text.
+    case labeled
+}
+
 /// Position of the floating feedback button.
 public enum ButtonPosition: Sendable {
     case bottomTrailing
@@ -24,6 +32,9 @@ public struct SeggWatOptions: Sendable {
 
     /// Position of the floating button. Default: `.bottomTrailing`.
     public var buttonPosition: ButtonPosition
+
+    /// Appearance of the floating button. Default: `.icon`.
+    public var buttonStyle: SeggWatButtonStyle
 
     /// App version string sent with feedback. Default: auto-detected from bundle.
     public var appVersion: String?
@@ -52,6 +63,7 @@ public struct SeggWatOptions: Sendable {
     public init(
         buttonColor: Color = .blue,
         buttonPosition: ButtonPosition = .bottomTrailing,
+        buttonStyle: SeggWatButtonStyle = .icon,
         appVersion: String? = nil,
         language: String? = nil,
         apiURL: URL = URL(string: "https://seggwat.com")!,
@@ -63,6 +75,7 @@ public struct SeggWatOptions: Sendable {
     ) {
         self.buttonColor = buttonColor
         self.buttonPosition = buttonPosition
+        self.buttonStyle = buttonStyle
         self.appVersion = appVersion ?? Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
         self.language = language
         self.apiURL = apiURL
