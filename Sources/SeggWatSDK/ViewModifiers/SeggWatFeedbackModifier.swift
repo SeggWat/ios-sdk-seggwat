@@ -7,7 +7,7 @@ struct SeggWatFeedbackModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .overlay(alignment: seggwat.options.buttonPosition.alignment) {
-                if seggwat.isConfigured {
+                if seggwat.isConfigured && !seggwat.isButtonHidden {
                     SeggWatButton()
                         .padding(16)
                         .environmentObject(seggwat)

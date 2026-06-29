@@ -29,6 +29,12 @@ public final class SeggWat: ObservableObject {
     /// Whether the feedback sheet is currently presented.
     @Published public var isPresented = false
 
+    /// When `true`, the floating feedback button is hidden even though the SDK
+    /// is configured. Host apps can toggle this per-screen to avoid overlapping
+    /// a screen's own bottom input bar (e.g. a chat composer). The feedback
+    /// sheet can still be presented programmatically via `presentFeedback()`.
+    @Published public var isButtonHidden = false
+
     private(set) var projectKey: String = ""
     private(set) var options = SeggWatOptions()
     private(set) var userId: String?
