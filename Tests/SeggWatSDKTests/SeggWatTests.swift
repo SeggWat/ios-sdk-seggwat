@@ -3,6 +3,23 @@ import XCTest
 
 final class SeggWatTests: XCTestCase {
 
+    @MainActor
+    func testSetUserStoresIdAndEmail() {
+        SeggWat.setUser("user-123", email: "jane@example.com")
+        XCTAssertEqual(SeggWat.shared.userId, "user-123")
+        XCTAssertEqual(SeggWat.shared.userEmail, "jane@example.com")
+
+        // Email defaults to nil when omitted.
+        SeggWat.setUser("user-123")
+        XCTAssertEqual(SeggWat.shared.userId, "user-123")
+        XCTAssertNil(SeggWat.shared.userEmail)
+
+        // Clearing the user clears both.
+        SeggWat.setUser(nil)
+        XCTAssertNil(SeggWat.shared.userId)
+        XCTAssertNil(SeggWat.shared.userEmail)
+    }
+
     func testErrorFromHTTPStatus400() {
         let error = SeggWatError.fromHTTPStatus(400)
         XCTAssertEqual(error, .serverValidationFailed)

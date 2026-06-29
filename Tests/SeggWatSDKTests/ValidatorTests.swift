@@ -124,6 +124,41 @@ final class ValidatorTests: XCTestCase {
         XCTAssertNotNil(Validator.validateUserId("user@123"))
     }
 
+    // MARK: - Email
+
+    func testValidEmail() {
+        XCTAssertNil(Validator.validateEmail("jane@example.com"))
+    }
+
+    func testValidEmailWithDottedLocalPart() {
+        XCTAssertNil(Validator.validateEmail("hauke.jung@outlook.de"))
+    }
+
+    func testNilEmail() {
+        XCTAssertNil(Validator.validateEmail(nil))
+    }
+
+    func testEmptyEmail() {
+        XCTAssertNil(Validator.validateEmail(""))
+    }
+
+    func testEmailMissingAt() {
+        XCTAssertNotNil(Validator.validateEmail("janeexample.com"))
+    }
+
+    func testEmailMissingDomainDot() {
+        XCTAssertNotNil(Validator.validateEmail("jane@example"))
+    }
+
+    func testEmailWithSpaces() {
+        XCTAssertNotNil(Validator.validateEmail("jane doe@example.com"))
+    }
+
+    func testEmailTooLong() {
+        let long = String(repeating: "a", count: 320) + "@example.com"
+        XCTAssertNotNil(Validator.validateEmail(long))
+    }
+
     // MARK: - Screenshot Size
 
     func testScreenshotWithinLimit() {

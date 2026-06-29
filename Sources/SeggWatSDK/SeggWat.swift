@@ -10,8 +10,8 @@ import SwiftUI
 ///     screenshotsEnabled: true
 /// ))
 ///
-/// // Set user identity (optional)
-/// SeggWat.setUser("user-123")
+/// // Set user identity (optional) — email makes the submitter contactable
+/// SeggWat.setUser("user-123", email: "jane@example.com")
 ///
 /// // Add floating button to a view
 /// ContentView()
@@ -38,6 +38,7 @@ public final class SeggWat: ObservableObject {
     private(set) var projectKey: String = ""
     private(set) var options = SeggWatOptions()
     private(set) var userId: String?
+    private(set) var userEmail: String?
     private var apiClient: APIClient?
     let rateLimiter = RateLimiter()
 
@@ -55,9 +56,16 @@ public final class SeggWat: ObservableObject {
         instance.isConfigured = true
     }
 
-    /// Set the current user ID for attribution.
-    public static func setUser(_ userId: String?) {
+    /// Set the current user for attribution.
+    ///
+    /// - Parameters:
+    ///   - userId: Stable identifier for the user (e.g. your auth subject id).
+    ///     Sent as `submitted_by` so feedback is no longer anonymous.
+    ///   - email: Optional email address. Sent as `submitted_by_email` so your
+    ///     team can see who submitted and reply directly from the dashboard.
+    public static func setUser(_ userId: String?, email: String? = nil) {
         shared.userId = userId
+        shared.userEmail = email
     }
 
     /// Present the feedback sheet programmatically.
@@ -100,6 +108,9 @@ public final class SeggWat: ObservableObject {
         if let error = Validator.validateUserId(userId) {
             throw error
         }
+        if let error = Validator.validateEmail(userEmail) {
+            throw error
+        }
 
         // Rate limit
         if let remaining = rateLimiter.check() {
@@ -111,7 +122,8 @@ public final class SeggWat: ObservableObject {
             message: message.trimmingCharacters(in: .whitespacesAndNewlines),
             screenName: screenName,
             version: options.appVersion,
-            userId: userId
+            userId: userId,
+            userEmail: userEmail
         )
 
         if let screenshotData {

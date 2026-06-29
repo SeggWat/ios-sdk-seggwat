@@ -6,6 +6,7 @@ enum Validator {
     static let messageMaxLength = 1000
     static let versionMaxLength = 50
     static let userIdMaxLength = 255
+    static let emailMaxLength = 320
 
     private static func matches(_ string: String, pattern: String) -> Bool {
         string.range(of: pattern, options: .regularExpression) != nil
@@ -57,6 +58,19 @@ enum Validator {
         let pattern = "^[a-zA-Z0-9_\\-]+$"
         guard matches(userId, pattern: pattern) else {
             return .validationFailed("User ID contains invalid characters. Use only letters, numbers, underscores, and hyphens.")
+        }
+        return nil
+    }
+
+    /// Validate a submitter email address (optional).
+    static func validateEmail(_ email: String?) -> SeggWatError? {
+        guard let email, !email.isEmpty else { return nil }
+        if email.count > emailMaxLength {
+            return .validationFailed("Email must be at most \(emailMaxLength) characters.")
+        }
+        let pattern = "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+        guard matches(email, pattern: pattern) else {
+            return .validationFailed("Email is not a valid address.")
         }
         return nil
     }

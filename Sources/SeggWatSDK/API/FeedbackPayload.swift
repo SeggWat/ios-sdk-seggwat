@@ -9,6 +9,7 @@ struct FeedbackPayload: Codable, Equatable {
     let source: String
     let version: String?
     let submittedBy: String?
+    let submittedByEmail: String?
 
     enum CodingKeys: String, CodingKey {
         case projectKey = "project_key"
@@ -17,6 +18,7 @@ struct FeedbackPayload: Codable, Equatable {
         case source
         case version
         case submittedBy = "submitted_by"
+        case submittedByEmail = "submitted_by_email"
     }
 
     init(
@@ -24,7 +26,8 @@ struct FeedbackPayload: Codable, Equatable {
         message: String,
         screenName: String? = nil,
         version: String? = nil,
-        userId: String? = nil
+        userId: String? = nil,
+        userEmail: String? = nil
     ) {
         self.projectKey = projectKey
         self.message = message
@@ -34,5 +37,6 @@ struct FeedbackPayload: Codable, Equatable {
         self.source = "Widget"
         self.version = version
         self.submittedBy = userId
+        self.submittedByEmail = userEmail
     }
 }

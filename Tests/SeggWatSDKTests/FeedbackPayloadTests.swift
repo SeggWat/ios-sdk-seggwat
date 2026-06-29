@@ -9,7 +9,8 @@ final class FeedbackPayloadTests: XCTestCase {
             message: "Great app!",
             screenName: "/home",
             version: "1.0.0",
-            userId: "user-123"
+            userId: "user-123",
+            userEmail: "jane@example.com"
         )
 
         let data = try JSONEncoder().encode(payload)
@@ -21,6 +22,7 @@ final class FeedbackPayloadTests: XCTestCase {
         XCTAssertEqual(json["source"] as? String, "Widget")
         XCTAssertEqual(json["version"] as? String, "1.0.0")
         XCTAssertEqual(json["submitted_by"] as? String, "user-123")
+        XCTAssertEqual(json["submitted_by_email"] as? String, "jane@example.com")
     }
 
     func testJSONEncodingWithNils() throws {
@@ -39,6 +41,7 @@ final class FeedbackPayloadTests: XCTestCase {
         XCTAssertEqual(json["path"] as? String, "/")
         XCTAssertNil(json["version"])
         XCTAssertNil(json["submitted_by"])
+        XCTAssertNil(json["submitted_by_email"])
     }
 
     func testEquality() {

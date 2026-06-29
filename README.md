@@ -58,7 +58,7 @@ If you collect feedback on the web with the [SeggWat widget](https://seggwat.com
 - ✏️ **Full screenshot annotation** — pen, arrow, rectangle, text, and blackout/redaction tools with undo/redo.
 - ⭐ **Ratings** — helpful (thumbs up/down), star (1–5 or custom), and **NPS** (0–10).
 - 🌍 **Localization** — English, German, and Swedish out of the box; auto-detected from the device.
-- 🙋 **User attribution** — attach a user ID to correlate feedback with accounts.
+- 🙋 **User attribution** — attach a user ID and email to correlate feedback with accounts and reply directly.
 - 🛡️ **Built-in rate limiting** — a client-side cooldown prevents accidental double submissions.
 - 📦 **Swift Package Manager** — one line in Xcode, zero dependencies, iOS 16+.
 
@@ -126,6 +126,10 @@ struct MyApp: App {
 
 ```swift
 SeggWat.setUser("user-123")
+
+// Pass an email too so the submitter is contactable in the dashboard
+// (your team can reply directly) instead of showing as anonymous:
+SeggWat.setUser("user-123", email: "jane@example.com")
 ```
 
 ### 3. Control the form programmatically
