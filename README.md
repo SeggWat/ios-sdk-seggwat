@@ -231,7 +231,7 @@ SeggWat is designed for teams that care where their data lives:
 - **Your data, your project** — submissions go straight to your SeggWat project.
 - **EU hosting available** — hosted in Europe, or self-host the open platform.
 
-The SDK sends `X-SeggWat-Platform: iOS` and `X-SeggWat-BundleID` headers so you can attribute and (in future) restrict native submissions by bundle ID.
+The SDK sends `X-SeggWat-Platform: iOS` and `X-SeggWat-BundleID` headers so you can attribute and restrict native submissions by bundle ID (see [Origin & bundle-ID allowlisting](#api-compatibility)).
 
 <a name="error-handling"></a>
 ## Error Handling
@@ -264,9 +264,11 @@ The SDK submits to the same public endpoints as the SeggWat web widgets:
 - `POST /api/v1/feedback/submit-with-screenshot` — feedback with screenshot (multipart)
 - `POST /api/v1/ratings` — unified rating submission
 
-### Origin allowlisting
+### Origin & bundle-ID allowlisting
 
-Native apps don't send an `Origin` or `Referer` header. Your SeggWat project must include `"*"` in its **allowed origins** to accept native submissions. The SDK additionally sends `X-SeggWat-Platform` and `X-SeggWat-BundleID` for future bundle-ID validation.
+Native apps don't send an `Origin` or `Referer` header, so a project that allowlists specific web origins returns **403** to native submissions. The SDK automatically sends the app's bundle identifier as `X-SeggWat-BundleID` (alongside `X-SeggWat-Platform: iOS`) — add that bundle ID to your project's **Allowed Bundle IDs** in the dashboard settings, next to Allowed Origins, to accept submissions from the app.
+
+Alternatively, include `"*"` in the project's **allowed origins**, but that accepts every web origin too — not recommended.
 
 <a name="faq"></a>
 ## FAQ
