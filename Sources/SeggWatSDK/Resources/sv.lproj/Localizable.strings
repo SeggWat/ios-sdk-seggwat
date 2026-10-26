@@ -49,6 +49,6 @@
 "chat_empty" = "Fråga oss vad som helst. Vi svarar oftast inom en dag.";
 "chat_placeholder" = "Meddelande";
 "chat_send" = "Skicka";
-"chat_unread" = "Olästa svar";
+"chat_unread" = "%d olästa svar";
 "chat_error_load" = "Det gick inte att ladda meddelanden. Kontrollera din anslutning.";
 "chat_error_send" = "Det gick inte att skicka ditt meddelande. Försök igen.";

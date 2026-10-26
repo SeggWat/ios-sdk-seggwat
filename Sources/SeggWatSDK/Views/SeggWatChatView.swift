@@ -121,12 +121,16 @@ struct SeggWatChatView: View {
     }
 
     /// Hold the SSE stream open while the view is visible, reconnecting after
-    /// a drop. The `.task` modifier cancels this when it disappears.
+    /// a drop with exponential backoff (3s doubling to 60s), so a rate-limited
+    /// or offline client doesn't hammer the server. The `.task` modifier
+    /// cancels this when it disappears.
     private func listenForReplies() async {
+        var failures = 0
         while !Task.isCancelled {
             do {
                 var parser = ChatStreamParser()
                 for try await line in try await seggwat.chatStream().lines {
+                    failures = 0
                     switch parser.consume(line) {
                     case .message(let message):
                         if !messages.contains(where: { $0.id == message.id }) {
@@ -142,7 +146,9 @@ struct SeggWatChatView: View {
                 return
             } catch {}
             // Catch up on anything sent while disconnected, then reconnect.
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            let delay = min(3 << min(failures, 5), 60)
+            failures += 1
+            try? await Task.sleep(nanoseconds: UInt64(delay) * 1_000_000_000)
             if !Task.isCancelled { await loadHistory() }
         }
     }

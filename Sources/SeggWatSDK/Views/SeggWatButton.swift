@@ -13,21 +13,24 @@ struct SeggWatButton: View {
                 SeggWat.presentFeedback()
             }
         } label: {
-            label.overlay(alignment: .topTrailing) {
-                if seggwat.unreadCount > 0 {
-                    Text("\(seggwat.unreadCount)")
-                        .font(.caption2.bold())
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Capsule().fill(Color.red))
-                        .offset(x: 4, y: -4)
-                        .accessibilityLabel(seggwat.localizedString("chat_unread"))
-                }
-            }
+            label
         }
         .buttonStyle(.plain)
         .accessibilityLabel(seggwat.localizedString("button_text"))
+        .accessibilityValue(seggwat.unreadCount > 0 ? seggwat.localizedString("chat_unread", seggwat.unreadCount) : "")
+        .overlay(alignment: .topTrailing) {
+            if seggwat.unreadCount > 0 {
+                Text("\(seggwat.unreadCount)")
+                    .font(.caption2.bold())
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Color.red))
+                    .offset(x: 4, y: -4)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
     }
 
     @ViewBuilder
