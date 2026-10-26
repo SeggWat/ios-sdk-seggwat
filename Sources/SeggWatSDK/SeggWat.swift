@@ -94,7 +94,19 @@ public final class SeggWat: ObservableObject {
         }
     }
 
-    /// Present the support chat sheet. Requires `setChatToken(_:)`.
+    /// Enable the support chat for an anonymous user, for apps with no backend
+    /// to mint end-user tokens. The SDK creates a random identity per install
+    /// and keeps it in the Keychain. Requires "Anonymous chat in apps" to be
+    /// on in the project's widget settings.
+    ///
+    /// The conversation belongs to this install: signing in later with
+    /// `setChatToken(_:)` starts a separate conversation.
+    public static func enableAnonymousChat() {
+        setChatToken(DeviceToken.loadOrCreate())
+    }
+
+    /// Present the support chat sheet. Requires `setChatToken(_:)` or
+    /// `enableAnonymousChat()`.
     public static func presentChat() {
         guard shared.isChatAvailable else { return }
         shared.isChatPresented = true

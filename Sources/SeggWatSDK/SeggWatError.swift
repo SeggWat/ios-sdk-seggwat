@@ -30,7 +30,8 @@ public enum SeggWatError: LocalizedError, Equatable {
     case invalidRatingValue(String)
     /// Server returned 409 - duplicate rating.
     case duplicateRating
-    /// Chat needs an end-user token. Call `SeggWat.setChatToken(_:)` first.
+    /// Chat needs an end-user identity. Call `SeggWat.setChatToken(_:)` or
+    /// `SeggWat.enableAnonymousChat()` first.
     case chatTokenMissing
     /// Server returned 401 - the chat token is invalid or expired.
     case chatTokenInvalid
@@ -66,7 +67,7 @@ public enum SeggWatError: LocalizedError, Equatable {
         case .duplicateRating:
             return "A rating has already been submitted for this path."
         case .chatTokenMissing:
-            return "Chat needs an end-user token. Call SeggWat.setChatToken(_:) first."
+            return "Chat needs an end-user identity. Call SeggWat.setChatToken(_:) or SeggWat.enableAnonymousChat() first."
         case .chatTokenInvalid:
             return "The chat token is invalid or expired. Mint a new one on your backend."
         }

@@ -208,6 +208,16 @@ SeggWat.presentChat()
 SeggWat.setChatToken(nil)
 ```
 
+### No backend? Use anonymous chat
+
+Turn on **Anonymous chat in apps** under the project's widget settings (Live Chat must be on), then:
+
+```swift
+SeggWat.enableAnonymousChat()
+```
+
+The SDK creates a random identity per install and keeps it in the Keychain, so the conversation survives relaunches. You won't know who the user is and they get no reply emails, and a later `setChatToken(_:)` starts a separate conversation. Anyone can start an anonymous conversation, so expect more spam than with signed tokens.
+
 With a token set, the feedback form shows a **Chat with us** button, and tapping the floating button while a reply is unread opens the conversation. `SeggWat.shared.unreadCount` is published if you want your own badge.
 
 <a name="screenshots"></a>
