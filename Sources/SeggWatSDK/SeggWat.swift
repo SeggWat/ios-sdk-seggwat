@@ -51,7 +51,12 @@ public final class SeggWat: ObservableObject {
     private(set) var userEmail: String?
     private(set) var chatToken: String?
     private var attestation: Task<Void, Error>?
-    private var apiClient: APIClient?
+    // Push notifications (see SeggWat+Push.swift).
+    var pushEnabled = false
+    var pushDeviceToken: String?
+    /// The device token and chat identity last registered with the server.
+    var registeredPush: PushRegistration?
+    private(set) var apiClient: APIClient?
     let rateLimiter = RateLimiter()
 
     private init() {}
@@ -93,6 +98,8 @@ public final class SeggWat: ObservableObject {
         if token != nil {
             Task { await shared.refreshUnreadCount() }
         }
+        // Move push to the new identity, or stop it on sign-out.
+        Task { await shared.syncPushRegistration() }
     }
 
     /// Enable the support chat for an anonymous user, for apps with no backend
@@ -291,6 +298,8 @@ public final class SeggWat: ObservableObject {
                 SendChatPayload(projectKey: self.projectKey, token: token, body: trimmed)
             )
         }
+        // Ask for notification permission once the user has something to wait for.
+        Task { await requestPushPermissionIfNeeded() }
         return ChatMessage(
             id: id,
             sender: .you,
@@ -307,7 +316,7 @@ public final class SeggWat: ObservableObject {
 
     /// Run a chat request. If the project requires App Attest and this
     /// anonymous identity isn't attested yet (428), attest once and retry.
-    private func withChat<T>(_ request: (APIClient, String) async throws -> T) async throws -> T {
+    func withChat<T>(_ request: (APIClient, String) async throws -> T) async throws -> T {
         guard isConfigured, let apiClient else { throw SeggWatError.notConfigured }
         guard let chatToken else { throw SeggWatError.chatTokenMissing }
         do {

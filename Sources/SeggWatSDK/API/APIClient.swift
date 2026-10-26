@@ -133,6 +133,27 @@ final class APIClient: Sendable {
         try validateResponse(response, data: data)
     }
 
+    /// Register this device for push notifications of team replies.
+    func registerPush(_ payload: PushTokenPayload) async throws {
+        try await postNoContent("api/v1/chat/push/register", payload)
+    }
+
+    /// Stop push notifications for this identity on this device.
+    func unregisterPush(_ payload: PushTokenPayload) async throws {
+        try await postNoContent("api/v1/chat/push/unregister", payload)
+    }
+
+    private func postNoContent(_ path: String, _ body: some Encodable) async throws {
+        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyPlatformHeaders(&request)
+        request.httpBody = try JSONEncoder().encode(body)
+
+        let (data, response) = try await performRequest(request)
+        try validateResponse(response, data: data)
+    }
+
     private func chatRequest(_ path: String, projectKey: String, token: String) -> URLRequest {
         var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
         components.queryItems = [

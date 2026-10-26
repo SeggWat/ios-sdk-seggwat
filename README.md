@@ -58,7 +58,7 @@ If you collect feedback on the web with the [SeggWat widget](https://seggwat.com
 - 🐞 **Bug reports with screenshots** — capture the current screen and annotate it before sending.
 - ✏️ **Full screenshot annotation** — pen, arrow, rectangle, text, and blackout/redaction tools with undo/redo.
 - ⭐ **Ratings** — helpful (thumbs up/down), star (1–5 or custom), and **NPS** (0–10).
-- 💬 **Support chat** — users message your team in-app and see your replies live, with an unread badge.
+- 💬 **Support chat** — users message your team in-app and see your replies live, with an unread badge and push notifications.
 - 🌟 **Review prompt** — happy raters get the App Store review dialog, unhappy ones the feedback form.
 - 🌍 **Localization** — English, German, and Swedish out of the box; auto-detected from the device.
 - 🙋 **User attribution** — attach a user ID and email to correlate feedback with accounts and reply directly.
@@ -217,6 +217,29 @@ SeggWat.enableAnonymousChat()
 ```
 
 The SDK creates a random identity per install and keeps it in the Keychain, so the conversation survives relaunches. You won't know who the user is and they get no reply emails, and a later `setChatToken(_:)` starts a separate conversation. Anyone can start an anonymous conversation, so set your **Apple Team ID** under the anonymous chat setting: SeggWat then requires [App Attest](https://developer.apple.com/documentation/devicecheck/establishing-your-app-s-integrity), and only genuine installs of your app on real devices can chat. The SDK attests automatically, once per install. The iOS Simulator can't attest, so leave the Team ID empty while testing there.
+
+### Push notifications for replies
+
+Upload your APNs key (`.p8`) in the project's widget settings, add the **Push Notifications** capability, and wire up your app delegate:
+
+```swift
+// App init, after configure
+SeggWat.enablePushNotifications()
+
+// AppDelegate
+func application(_ application: UIApplication,
+                 didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    SeggWat.setPushToken(deviceToken)
+}
+
+// UNUserNotificationCenterDelegate
+func userNotificationCenter(_ center: UNUserNotificationCenter,
+                            didReceive response: UNNotificationResponse) async {
+    SeggWat.handleNotification(response.notification.request.content.userInfo) // opens the chat
+}
+```
+
+The SDK asks for notification permission after the user's first chat message, and SeggWat only pushes a reply the user hasn't already seen in an open chat. See the [iOS SDK guide](https://seggwat.com/docs/guides/ios-sdk#push-notifications-for-replies).
 
 With a token set, the feedback form shows a **Chat with us** button, and tapping the floating button while a reply is unread opens the conversation. `SeggWat.shared.unreadCount` is published if you want your own badge.
 

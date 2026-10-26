@@ -88,3 +88,17 @@ struct ChatStreamParser {
         return .message(message)
     }
 }
+
+struct PushTokenPayload: Encodable {
+    let projectKey: String
+    let token: String
+    let deviceToken: String
+    let environment: String
+
+    enum CodingKeys: String, CodingKey {
+        case projectKey = "project_key"
+        case token
+        case deviceToken = "device_token"
+        case environment
+    }
+}

@@ -53,3 +53,23 @@ final class ChatPayloadTests: XCTestCase {
         XCTAssertEqual(SeggWatError.fromHTTPStatus(401), .chatTokenInvalid)
     }
 }
+
+final class PushTests: XCTestCase {
+
+    func testPushPayloadEncoding() throws {
+        let payload = PushRegistration(deviceToken: "abcd", chatToken: "dev_x").payload(projectKey: "key")
+        let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(payload)) as! [String: Any]
+
+        XCTAssertEqual(json["project_key"] as? String, "key")
+        XCTAssertEqual(json["token"] as? String, "dev_x")
+        XCTAssertEqual(json["device_token"] as? String, "abcd")
+        XCTAssertEqual(json["environment"] as? String, "sandbox") // tests build in Debug
+    }
+
+    @MainActor
+    func testRecognizesSeggWatNotifications() {
+        XCTAssertTrue(SeggWat.isSeggWatNotification(["seggwat": ["type": "chat_reply"], "aps": [:]]))
+        XCTAssertFalse(SeggWat.isSeggWatNotification(["aps": [:]]))
+        XCTAssertFalse(SeggWat.handleNotification(["aps": [:]]))
+    }
+}
