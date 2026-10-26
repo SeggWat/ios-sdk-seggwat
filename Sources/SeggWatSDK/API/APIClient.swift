@@ -108,6 +108,31 @@ final class APIClient: Sendable {
         return bytes
     }
 
+    /// Fetch a single-use App Attest challenge.
+    func attestChallenge(projectKey: String) async throws -> String {
+        var request = URLRequest(url: baseURL.appendingPathComponent("api/v1/chat/attest/challenge"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyPlatformHeaders(&request)
+        request.httpBody = try JSONEncoder().encode(["project_key": projectKey])
+
+        let (data, response) = try await performRequest(request)
+        try validateResponse(response, data: data)
+        return try JSONDecoder().decode(AttestChallengeResponse.self, from: data).challenge
+    }
+
+    /// Submit an App Attest attestation for an anonymous identity.
+    func submitAttestation(_ payload: AttestPayload) async throws {
+        var request = URLRequest(url: baseURL.appendingPathComponent("api/v1/chat/attest"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyPlatformHeaders(&request)
+        request.httpBody = try JSONEncoder().encode(payload)
+
+        let (data, response) = try await performRequest(request)
+        try validateResponse(response, data: data)
+    }
+
     private func chatRequest(_ path: String, projectKey: String, token: String) -> URLRequest {
         var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
         components.queryItems = [

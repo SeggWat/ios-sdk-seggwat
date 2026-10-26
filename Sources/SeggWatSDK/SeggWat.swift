@@ -50,6 +50,7 @@ public final class SeggWat: ObservableObject {
     private(set) var userId: String?
     private(set) var userEmail: String?
     private(set) var chatToken: String?
+    private var attestation: Task<Void, Error>?
     private var apiClient: APIClient?
     let rateLimiter = RateLimiter()
 
@@ -268,25 +269,28 @@ public final class SeggWat: ObservableObject {
     /// Refresh `unreadCount` from the server. Read-only: it does not mark
     /// replies read or count as the user being in the chat.
     public func refreshUnreadCount() async {
-        guard let (apiClient, token) = try? chatContext() else { return }
-        if let count = try? await apiClient.chatUnread(projectKey: projectKey, token: token) {
+        if let count = try? await withChat({ api, token in
+            try await api.chatUnread(projectKey: self.projectKey, token: token)
+        }) {
             unreadCount = count
         }
     }
 
     func chatHistory() async throws -> [ChatMessage] {
-        let (apiClient, token) = try chatContext()
-        let messages = try await apiClient.chatHistory(projectKey: projectKey, token: token)
+        let messages = try await withChat { api, token in
+            try await api.chatHistory(projectKey: self.projectKey, token: token)
+        }
         unreadCount = 0
         return messages
     }
 
     func sendChatMessage(_ body: String) async throws -> ChatMessage {
-        let (apiClient, token) = try chatContext()
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
-        let id = try await apiClient.sendChatMessage(
-            SendChatPayload(projectKey: projectKey, token: token, body: trimmed)
-        )
+        let id = try await withChat { api, token in
+            try await api.sendChatMessage(
+                SendChatPayload(projectKey: self.projectKey, token: token, body: trimmed)
+            )
+        }
         return ChatMessage(
             id: id,
             sender: .you,
@@ -296,14 +300,36 @@ public final class SeggWat: ObservableObject {
     }
 
     func chatStream() async throws -> URLSession.AsyncBytes {
-        let (apiClient, token) = try chatContext()
-        return try await apiClient.chatStream(projectKey: projectKey, token: token)
+        try await withChat { api, token in
+            try await api.chatStream(projectKey: self.projectKey, token: token)
+        }
     }
 
-    private func chatContext() throws -> (APIClient, String) {
+    /// Run a chat request. If the project requires App Attest and this
+    /// anonymous identity isn't attested yet (428), attest once and retry.
+    private func withChat<T>(_ request: (APIClient, String) async throws -> T) async throws -> T {
         guard isConfigured, let apiClient else { throw SeggWatError.notConfigured }
         guard let chatToken else { throw SeggWatError.chatTokenMissing }
-        return (apiClient, chatToken)
+        do {
+            return try await request(apiClient, chatToken)
+        } catch SeggWatError.attestationRequired where chatToken.hasPrefix("dev_") {
+            try await attestDevice(apiClient: apiClient, token: chatToken)
+            return try await request(apiClient, chatToken)
+        }
+    }
+
+    /// Attest this install's anonymous identity, sharing one attempt between
+    /// concurrent requests (e.g. the unread poll and opening the chat).
+    private func attestDevice(apiClient: APIClient, token: String) async throws {
+        if let attestation {
+            return try await attestation.value
+        }
+        let task = Task {
+            try await AppAttest.attest(apiClient: apiClient, projectKey: projectKey, token: token)
+        }
+        attestation = task
+        defer { attestation = nil }
+        try await task.value
     }
 
     // MARK: - Localization Helper

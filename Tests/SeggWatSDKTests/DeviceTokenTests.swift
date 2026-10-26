@@ -15,3 +15,19 @@ final class DeviceTokenTests: XCTestCase {
         XCTAssertNotEqual(DeviceToken.generate(), DeviceToken.generate())
     }
 }
+
+final class AppAttestTests: XCTestCase {
+
+    func testClientDataHashMatchesServer() {
+        // SHA-256("challenge" + "dev_token"), the same input the server hashes.
+        let hash = AppAttest.clientDataHash(challenge: "challenge", token: "dev_token")
+        XCTAssertEqual(
+            hash.map { String(format: "%02x", $0) }.joined(),
+            "3b1a543805a79d337c06285a6dec47c6e1d6d28867c951a796fa5186240dbaf8"
+        )
+    }
+
+    func testPreconditionRequiredMapsToAttestationRequired() {
+        XCTAssertEqual(SeggWatError.fromHTTPStatus(428), .attestationRequired)
+    }
+}

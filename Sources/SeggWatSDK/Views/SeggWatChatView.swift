@@ -142,7 +142,8 @@ struct SeggWatChatView: View {
                         break
                     }
                 }
-            } catch SeggWatError.chatTokenInvalid, SeggWatError.chatTokenMissing {
+            } catch SeggWatError.chatTokenInvalid, SeggWatError.chatTokenMissing,
+                    SeggWatError.attestationUnsupported, SeggWatError.attestationFailed {
                 return
             } catch {}
             // Catch up on anything sent while disconnected, then reconnect.

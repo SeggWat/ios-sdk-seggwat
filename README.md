@@ -216,7 +216,7 @@ Turn on **Anonymous chat in apps** under the project's widget settings (Live Cha
 SeggWat.enableAnonymousChat()
 ```
 
-The SDK creates a random identity per install and keeps it in the Keychain, so the conversation survives relaunches. You won't know who the user is and they get no reply emails, and a later `setChatToken(_:)` starts a separate conversation. Anyone can start an anonymous conversation, so expect more spam than with signed tokens.
+The SDK creates a random identity per install and keeps it in the Keychain, so the conversation survives relaunches. You won't know who the user is and they get no reply emails, and a later `setChatToken(_:)` starts a separate conversation. Anyone can start an anonymous conversation, so set your **Apple Team ID** under the anonymous chat setting: SeggWat then requires [App Attest](https://developer.apple.com/documentation/devicecheck/establishing-your-app-s-integrity), and only genuine installs of your app on real devices can chat. The SDK attests automatically, once per install. The iOS Simulator can't attest, so leave the Team ID empty while testing there.
 
 With a token set, the feedback form shows a **Chat with us** button, and tapping the floating button while a reply is unread opens the conversation. `SeggWat.shared.unreadCount` is published if you want your own badge.
 

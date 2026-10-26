@@ -35,6 +35,12 @@ public enum SeggWatError: LocalizedError, Equatable {
     case chatTokenMissing
     /// Server returned 401 - the chat token is invalid or expired.
     case chatTokenInvalid
+    /// Server returned 428 - the project requires App Attest for anonymous chat.
+    case attestationRequired
+    /// App Attest is unavailable on this device (e.g. the iOS Simulator).
+    case attestationUnsupported
+    /// App Attest failed on the device or was rejected by the server.
+    case attestationFailed(String)
 
     public var errorDescription: String? {
         switch self {
@@ -70,6 +76,12 @@ public enum SeggWatError: LocalizedError, Equatable {
             return "Chat needs an end-user identity. Call SeggWat.setChatToken(_:) or SeggWat.enableAnonymousChat() first."
         case .chatTokenInvalid:
             return "The chat token is invalid or expired. Mint a new one on your backend."
+        case .attestationRequired:
+            return "This project requires App Attest for anonymous chat."
+        case .attestationUnsupported:
+            return "App Attest is not available on this device, e.g. the iOS Simulator."
+        case .attestationFailed(let reason):
+            return "App Attest failed: \(reason)"
         }
     }
 
@@ -78,6 +90,7 @@ public enum SeggWatError: LocalizedError, Equatable {
         switch statusCode {
         case 400: return .serverValidationFailed
         case 401: return .chatTokenInvalid
+        case 428: return .attestationRequired
         case 403: return .originNotAllowed
         case 404: return .projectNotFound
         case 413: return .screenshotTooLarge
@@ -99,13 +112,17 @@ public enum SeggWatError: LocalizedError, Equatable {
              (.screenshotCaptureFailed, .screenshotCaptureFailed),
              (.duplicateRating, .duplicateRating),
              (.chatTokenMissing, .chatTokenMissing),
-             (.chatTokenInvalid, .chatTokenInvalid):
+             (.chatTokenInvalid, .chatTokenInvalid),
+             (.attestationRequired, .attestationRequired),
+             (.attestationUnsupported, .attestationUnsupported):
             return true
         case (.invalidRatingValue(let a), .invalidRatingValue(let b)):
             return a == b
         case (.validationFailed(let a), .validationFailed(let b)):
             return a == b
         case (.rateLimited(let a), .rateLimited(let b)):
+            return a == b
+        case (.attestationFailed(let a), .attestationFailed(let b)):
             return a == b
         case (.networkError(let a), .networkError(let b)):
             return a == b
