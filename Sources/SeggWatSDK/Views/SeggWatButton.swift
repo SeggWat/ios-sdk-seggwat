@@ -6,9 +6,25 @@ struct SeggWatButton: View {
 
     var body: some View {
         Button {
-            SeggWat.presentFeedback()
+            // An unread reply takes the user straight to the conversation.
+            if seggwat.unreadCount > 0 {
+                SeggWat.presentChat()
+            } else {
+                SeggWat.presentFeedback()
+            }
         } label: {
-            label
+            label.overlay(alignment: .topTrailing) {
+                if seggwat.unreadCount > 0 {
+                    Text("\(seggwat.unreadCount)")
+                        .font(.caption2.bold())
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(Color.red))
+                        .offset(x: 4, y: -4)
+                        .accessibilityLabel(seggwat.localizedString("chat_unread"))
+                }
+            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(seggwat.localizedString("button_text"))

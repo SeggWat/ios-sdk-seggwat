@@ -42,3 +42,13 @@
 
 /* Branding */
 "powered_by" = "Unterstützt von SeggWat";
+
+/* Chat */
+"chat_title" = "Nachrichten";
+"chat_open" = "Mit uns chatten";
+"chat_empty" = "Fragen Sie uns, was Sie möchten. Wir antworten meist innerhalb eines Tages.";
+"chat_placeholder" = "Nachricht";
+"chat_send" = "Senden";
+"chat_unread" = "Ungelesene Antworten";
+"chat_error_load" = "Nachrichten konnten nicht geladen werden. Prüfen Sie Ihre Verbindung.";
+"chat_error_send" = "Ihre Nachricht konnte nicht gesendet werden. Bitte versuchen Sie es erneut.";

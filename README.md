@@ -28,6 +28,7 @@ ContentView()
 - [Quick Start](#quick-start)
 - [Collecting Feedback](#collecting-feedback)
 - [Star, Helpful & NPS Ratings](#ratings)
+- [In-App Support Chat](#chat)
 - [Screenshot Capture & Annotation](#screenshots)
 - [Configuration](#configuration)
 - [Localization](#localization)
@@ -57,6 +58,7 @@ If you collect feedback on the web with the [SeggWat widget](https://seggwat.com
 - 🐞 **Bug reports with screenshots** — capture the current screen and annotate it before sending.
 - ✏️ **Full screenshot annotation** — pen, arrow, rectangle, text, and blackout/redaction tools with undo/redo.
 - ⭐ **Ratings** — helpful (thumbs up/down), star (1–5 or custom), and **NPS** (0–10).
+- 💬 **Support chat** — users message your team in-app and see your replies live, with an unread badge.
 - 🌟 **Review prompt** — happy raters get the App Store review dialog, unhappy ones the feedback form.
 - 🌍 **Localization** — English, German, and Swedish out of the box; auto-detected from the device.
 - 🙋 **User attribution** — attach a user ID and email to correlate feedback with accounts and reply directly.
@@ -187,6 +189,26 @@ try await SeggWat.shared.submitRating(.nps(4))         // → feedback form
 ```
 
 Helpful ratings never prompt. Apple decides whether the dialog actually appears (at most three times per user per year).
+
+<a name="chat"></a>
+## In-App Support Chat
+
+Let users message your team and read your replies without leaving the app. Replies you send from the SeggWat dashboard arrive live while the chat is open; the floating button shows an unread badge otherwise, and users who are away get the reply by email when the token carries their `email`.
+
+Chat is a Pro feature and needs an end-user token: an HS256 JWT your **backend** mints with the project's end-user signing secret (claims `sub`, `project_key`, `iat`, `exp`, optional `email`/`name`). See [Portal authentication](https://seggwat.com/docs/features/portal-authentication).
+
+```swift
+// After sign-in, with a token from your backend
+SeggWat.setChatToken(tokenFromYourBackend)
+
+// Open the chat directly, e.g. from a "Contact support" row
+SeggWat.presentChat()
+
+// On sign-out
+SeggWat.setChatToken(nil)
+```
+
+With a token set, the feedback form shows a **Chat with us** button, and tapping the floating button while a reply is unread opens the conversation. `SeggWat.shared.unreadCount` is published if you want your own badge.
 
 <a name="screenshots"></a>
 ## Screenshot Capture & Annotation

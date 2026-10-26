@@ -42,3 +42,13 @@
 
 /* Branding */
 "powered_by" = "Drivs av SeggWat";
+
+/* Chat */
+"chat_title" = "Meddelanden";
+"chat_open" = "Chatta med oss";
+"chat_empty" = "Fråga oss vad som helst. Vi svarar oftast inom en dag.";
+"chat_placeholder" = "Meddelande";
+"chat_send" = "Skicka";
+"chat_unread" = "Olästa svar";
+"chat_error_load" = "Det gick inte att ladda meddelanden. Kontrollera din anslutning.";
+"chat_error_send" = "Det gick inte att skicka ditt meddelande. Försök igen.";

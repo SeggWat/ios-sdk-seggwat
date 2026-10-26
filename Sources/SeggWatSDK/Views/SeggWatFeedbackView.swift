@@ -35,6 +35,15 @@ struct SeggWatFeedbackView: View {
                         }
                     }
                 }
+                ToolbarItem(placement: .primaryAction) {
+                    if seggwat.isChatAvailable && !showSuccess {
+                        NavigationLink {
+                            SeggWatChatView()
+                        } label: {
+                            Label(seggwat.localizedString("chat_open"), systemImage: "bubble.left.and.bubble.right")
+                        }
+                    }
+                }
             }
         }
         .fullScreenCover(isPresented: $showAnnotationEditor) {

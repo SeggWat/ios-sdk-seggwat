@@ -30,6 +30,10 @@ public enum SeggWatError: LocalizedError, Equatable {
     case invalidRatingValue(String)
     /// Server returned 409 - duplicate rating.
     case duplicateRating
+    /// Chat needs an end-user token. Call `SeggWat.setChatToken(_:)` first.
+    case chatTokenMissing
+    /// Server returned 401 - the chat token is invalid or expired.
+    case chatTokenInvalid
 
     public var errorDescription: String? {
         switch self {
@@ -61,6 +65,10 @@ public enum SeggWatError: LocalizedError, Equatable {
             return "Invalid rating value: \(reason)"
         case .duplicateRating:
             return "A rating has already been submitted for this path."
+        case .chatTokenMissing:
+            return "Chat needs an end-user token. Call SeggWat.setChatToken(_:) first."
+        case .chatTokenInvalid:
+            return "The chat token is invalid or expired. Mint a new one on your backend."
         }
     }
 
@@ -68,6 +76,7 @@ public enum SeggWatError: LocalizedError, Equatable {
     static func fromHTTPStatus(_ statusCode: Int, message: String? = nil) -> SeggWatError {
         switch statusCode {
         case 400: return .serverValidationFailed
+        case 401: return .chatTokenInvalid
         case 403: return .originNotAllowed
         case 404: return .projectNotFound
         case 413: return .screenshotTooLarge
@@ -87,7 +96,9 @@ public enum SeggWatError: LocalizedError, Equatable {
              (.screenshotTooLarge, .screenshotTooLarge),
              (.unsupportedMediaType, .unsupportedMediaType),
              (.screenshotCaptureFailed, .screenshotCaptureFailed),
-             (.duplicateRating, .duplicateRating):
+             (.duplicateRating, .duplicateRating),
+             (.chatTokenMissing, .chatTokenMissing),
+             (.chatTokenInvalid, .chatTokenInvalid):
             return true
         case (.invalidRatingValue(let a), .invalidRatingValue(let b)):
             return a == b

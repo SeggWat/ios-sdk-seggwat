@@ -66,6 +66,59 @@ final class APIClient: Sendable {
         return try decoder.decode(RatingCreatedResponse.self, from: data)
     }
 
+    // MARK: - Chat
+
+    /// Load the end-user's conversation. Marks team replies read.
+    func chatHistory(projectKey: String, token: String) async throws -> [ChatMessage] {
+        let request = chatRequest("api/v1/chat/history", projectKey: projectKey, token: token)
+        let (data, response) = try await performRequest(request)
+        try validateResponse(response, data: data)
+        return try JSONDecoder().decode(ChatHistoryResponse.self, from: data).messages
+    }
+
+    /// Send an end-user message. Returns the server-assigned message id.
+    func sendChatMessage(_ payload: SendChatPayload) async throws -> String {
+        let url = baseURL.appendingPathComponent("api/v1/chat/messages")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyPlatformHeaders(&request)
+        request.httpBody = try JSONEncoder().encode(payload)
+
+        let (data, response) = try await performRequest(request)
+        try validateResponse(response, data: data)
+        return try JSONDecoder().decode(SendChatResponse.self, from: data).messageId
+    }
+
+    /// Count unread team replies. Passive: marks nothing read.
+    func chatUnread(projectKey: String, token: String) async throws -> Int {
+        let request = chatRequest("api/v1/chat/unread", projectKey: projectKey, token: token)
+        let (data, response) = try await performRequest(request)
+        try validateResponse(response, data: data)
+        return try JSONDecoder().decode(ChatUnreadResponse.self, from: data).unread
+    }
+
+    /// Open the SSE stream of live team replies.
+    func chatStream(projectKey: String, token: String) async throws -> URLSession.AsyncBytes {
+        var request = chatRequest("api/v1/chat/stream", projectKey: projectKey, token: token)
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = .infinity
+        let (bytes, response) = try await session.bytes(for: request)
+        try validateResponse(response, data: Data())
+        return bytes
+    }
+
+    private func chatRequest(_ path: String, projectKey: String, token: String) -> URLRequest {
+        var components = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "project_key", value: projectKey),
+            URLQueryItem(name: "token", value: token),
+        ]
+        var request = URLRequest(url: components.url!)
+        applyPlatformHeaders(&request)
+        return request
+    }
+
     // MARK: - Private
 
     private func applyPlatformHeaders(_ request: inout URLRequest) {

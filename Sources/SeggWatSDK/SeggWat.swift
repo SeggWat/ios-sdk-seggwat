@@ -35,10 +35,21 @@ public final class SeggWat: ObservableObject {
     /// sheet can still be presented programmatically via `presentFeedback()`.
     @Published public var isButtonHidden = false
 
+    /// Whether the support chat sheet is currently presented.
+    @Published public var isChatPresented = false
+
+    /// Unread support replies, refreshed by `refreshUnreadCount()`. Shown as a
+    /// badge on the floating button.
+    @Published public private(set) var unreadCount = 0
+
+    /// Whether chat is usable, i.e. an end-user token has been set.
+    public var isChatAvailable: Bool { chatToken != nil }
+
     private(set) var projectKey: String = ""
     private(set) var options = SeggWatOptions()
     private(set) var userId: String?
     private(set) var userEmail: String?
+    private(set) var chatToken: String?
     private var apiClient: APIClient?
     let rateLimiter = RateLimiter()
 
@@ -66,6 +77,27 @@ public final class SeggWat: ObservableObject {
     public static func setUser(_ userId: String?, email: String? = nil) {
         shared.userId = userId
         shared.userEmail = email
+    }
+
+    /// Set the end-user token that enables the in-app support chat.
+    ///
+    /// Mint the token on **your backend** as an HS256 JWT signed with the
+    /// project's end-user signing secret, with claims `sub` (your user id),
+    /// `project_key`, `iat` and `exp`, plus optional `email` and `name` — see
+    /// https://seggwat.com/docs/features/portal-authentication. Pass `nil` on
+    /// sign-out.
+    public static func setChatToken(_ token: String?) {
+        shared.chatToken = token
+        shared.unreadCount = 0
+        if token != nil {
+            Task { await shared.refreshUnreadCount() }
+        }
+    }
+
+    /// Present the support chat sheet. Requires `setChatToken(_:)`.
+    public static func presentChat() {
+        guard shared.isChatAvailable else { return }
+        shared.isChatPresented = true
     }
 
     /// Present the feedback sheet programmatically.
@@ -217,6 +249,49 @@ public final class SeggWat: ObservableObject {
         }
 
         return response
+    }
+
+    // MARK: - Chat
+
+    /// Refresh `unreadCount` from the server. Read-only: it does not mark
+    /// replies read or count as the user being in the chat.
+    public func refreshUnreadCount() async {
+        guard let (apiClient, token) = try? chatContext() else { return }
+        if let count = try? await apiClient.chatUnread(projectKey: projectKey, token: token) {
+            unreadCount = count
+        }
+    }
+
+    func chatHistory() async throws -> [ChatMessage] {
+        let (apiClient, token) = try chatContext()
+        let messages = try await apiClient.chatHistory(projectKey: projectKey, token: token)
+        unreadCount = 0
+        return messages
+    }
+
+    func sendChatMessage(_ body: String) async throws -> ChatMessage {
+        let (apiClient, token) = try chatContext()
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        let id = try await apiClient.sendChatMessage(
+            SendChatPayload(projectKey: projectKey, token: token, body: trimmed)
+        )
+        return ChatMessage(
+            id: id,
+            sender: .you,
+            body: trimmed,
+            createdAt: ISO8601DateFormatter().string(from: Date())
+        )
+    }
+
+    func chatStream() async throws -> URLSession.AsyncBytes {
+        let (apiClient, token) = try chatContext()
+        return try await apiClient.chatStream(projectKey: projectKey, token: token)
+    }
+
+    private func chatContext() throws -> (APIClient, String) {
+        guard isConfigured, let apiClient else { throw SeggWatError.notConfigured }
+        guard let chatToken else { throw SeggWatError.chatTokenMissing }
+        return (apiClient, chatToken)
     }
 
     // MARK: - Localization Helper

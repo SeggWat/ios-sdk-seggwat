@@ -42,3 +42,13 @@
 
 /* Branding */
 "powered_by" = "Powered by SeggWat";
+
+/* Chat */
+"chat_title" = "Messages";
+"chat_open" = "Chat with us";
+"chat_empty" = "Ask us anything. We usually reply within a day.";
+"chat_placeholder" = "Message";
+"chat_send" = "Send";
+"chat_unread" = "Unread replies";
+"chat_error_load" = "Couldn't load messages. Check your connection.";
+"chat_error_send" = "Couldn't send your message. Please try again.";
