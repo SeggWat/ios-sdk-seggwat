@@ -145,6 +145,9 @@ public final class SeggWat: ObservableObject {
 
     /// Submit a rating programmatically.
     ///
+    /// With `SeggWatOptions.reviewPrompt` set, a high rating then requests an
+    /// App Store review and a low one opens the feedback form.
+    ///
     /// - Parameters:
     ///   - rating: The rating value (`.helpful`, `.star`, or `.nps`).
     ///   - screenName: Optional screen/path identifier.
@@ -206,6 +209,12 @@ public final class SeggWat: ObservableObject {
 
         // Notify callback
         options.onSubmit?(.success(()))
+
+        switch options.reviewPrompt?.action(for: rating) {
+        case .requestReview: requestAppStoreReview()
+        case .collectFeedback: isPresented = true
+        case .noPrompt, nil: break
+        }
 
         return response
     }

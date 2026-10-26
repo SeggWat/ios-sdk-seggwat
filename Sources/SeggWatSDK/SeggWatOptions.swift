@@ -57,6 +57,10 @@ public struct SeggWatOptions: Sendable {
     /// Maximum screenshot size in MB. Default: `5`.
     public var maxScreenshotSizeMB: Int
 
+    /// Ask happy raters for an App Store review and route unhappy ones to the
+    /// feedback form after `submitRating(_:)`. Default: `nil` (off).
+    public var reviewPrompt: ReviewPromptOptions?
+
     /// Callback invoked after feedback submission completes.
     public var onSubmit: (@Sendable (Result<Void, SeggWatError>) -> Void)?
 
@@ -71,6 +75,7 @@ public struct SeggWatOptions: Sendable {
         screenshotsEnabled: Bool = true,
         compressionQuality: CGFloat = 0.8,
         maxScreenshotSizeMB: Int = 5,
+        reviewPrompt: ReviewPromptOptions? = nil,
         onSubmit: (@Sendable (Result<Void, SeggWatError>) -> Void)? = nil
     ) {
         self.buttonColor = buttonColor
@@ -83,6 +88,7 @@ public struct SeggWatOptions: Sendable {
         self.screenshotsEnabled = screenshotsEnabled
         self.compressionQuality = compressionQuality
         self.maxScreenshotSizeMB = maxScreenshotSizeMB
+        self.reviewPrompt = reviewPrompt
         self.onSubmit = onSubmit
     }
 }

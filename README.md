@@ -57,6 +57,7 @@ If you collect feedback on the web with the [SeggWat widget](https://seggwat.com
 - 🐞 **Bug reports with screenshots** — capture the current screen and annotate it before sending.
 - ✏️ **Full screenshot annotation** — pen, arrow, rectangle, text, and blackout/redaction tools with undo/redo.
 - ⭐ **Ratings** — helpful (thumbs up/down), star (1–5 or custom), and **NPS** (0–10).
+- 🌟 **Review prompt** — happy raters get the App Store review dialog, unhappy ones the feedback form.
 - 🌍 **Localization** — English, German, and Swedish out of the box; auto-detected from the device.
 - 🙋 **User attribution** — attach a user ID and email to correlate feedback with accounts and reply directly.
 - 🛡️ **Built-in rate limiting** — a client-side cooldown prevents accidental double submissions.
@@ -171,6 +172,21 @@ try await SeggWat.shared.submitRating(.nps(9), screenName: "/checkout")
 ```
 
 NPS, helpful, and star ratings aggregate into the same dashboard stats as your web widgets.
+
+### Turn happy ratings into App Store reviews
+
+Set `reviewPrompt` and `submitRating(_:)` routes the user after a star or NPS rating: happy users get Apple's App Store review dialog, unhappy users get the feedback form (attach `.seggwatFeedbackButton()` somewhere in the view hierarchy so the sheet can present).
+
+```swift
+SeggWat.configure(projectKey: "your-project-uuid", options: SeggWatOptions(
+    reviewPrompt: ReviewPromptOptions(minimumStars: 4, minimumNps: 9) // defaults
+))
+
+try await SeggWat.shared.submitRating(.star(value: 5)) // → App Store review dialog
+try await SeggWat.shared.submitRating(.nps(4))         // → feedback form
+```
+
+Helpful ratings never prompt. Apple decides whether the dialog actually appears (at most three times per user per year).
 
 <a name="screenshots"></a>
 ## Screenshot Capture & Annotation
