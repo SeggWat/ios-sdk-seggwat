@@ -27,11 +27,16 @@ extension SeggWat {
 
     /// Handle a notification the user tapped. Opens the support chat and
     /// returns `true` if it was a SeggWat chat notification; returns `false`
-    /// for your app's own notifications.
+    /// for your app's own notifications. On a cold launch the chat opens once
+    /// the app sets the chat identity.
     @discardableResult
     public static func handleNotification(_ userInfo: [AnyHashable: Any]) -> Bool {
         guard isSeggWatNotification(userInfo) else { return false }
-        presentChat()
+        if shared.isChatAvailable {
+            shared.isChatPresented = true
+        } else {
+            shared.pendingChatOpen = true
+        }
         Task { await shared.refreshUnreadCount() }
         return true
     }
@@ -67,34 +72,84 @@ extension SeggWat {
 
     /// Bring the server's registration in line with the current device token
     /// and chat identity: move it when the identity changes, drop it on
-    /// sign-out. Best-effort; retried on the next token or identity change.
+    /// sign-out. Runs one pass at a time, again if something changed
+    /// meanwhile, and retries a failed pass after a minute.
     func syncPushRegistration() async {
-        let current = pushDeviceToken.flatMap { device in
-            chatToken.map { PushRegistration(deviceToken: device, chatToken: $0) }
-        }
-        if let registered = registeredPush, registered != current {
-            try? await apiClient?.unregisterPush(registered.payload(projectKey: projectKey))
-            registeredPush = nil
-        }
-        guard let current, registeredPush == nil else { return }
-        do {
-            // The chat token is the current one, so this also runs App Attest
-            // first if the project requires it.
-            try await withChat { api, _ in
-                try await api.registerPush(current.payload(projectKey: self.projectKey))
+        pushSyncNeeded = true
+        guard !pushSyncRunning else { return }
+        pushSyncRunning = true
+        defer { pushSyncRunning = false }
+        while pushSyncNeeded {
+            pushSyncNeeded = false
+            do {
+                try await reconcilePush()
+            } catch {
+                Task {
+                    try? await Task.sleep(nanoseconds: 60_000_000_000)
+                    await self.syncPushRegistration()
+                }
+                return
             }
-            registeredPush = current
-        } catch {}
+        }
     }
 
-    /// Debug builds get sandbox device tokens from APNs; TestFlight and App
-    /// Store builds get production ones.
-    nonisolated static var apnsEnvironment: String {
-        #if DEBUG
-        "sandbox"
-        #else
-        "production"
-        #endif
+    /// One reconciliation pass. The device token the server may hold is kept
+    /// in `UserDefaults`, so a sign-out whose unregister failed, or happened
+    /// in a later launch, still removes it.
+    private func reconcilePush() async throws {
+        guard let apiClient else { return }
+        let desired = pushDeviceToken.flatMap { device in
+            chatToken.map { PushRegistration(deviceToken: device, chatToken: $0) }
+        }
+        let stored = UserDefaults.standard.string(forKey: Self.registeredDeviceKey)
+        // Without a device token yet (early in launch) there is nothing to
+        // compare against, unless the user signed out.
+        if let stored, pushDeviceToken != nil || chatToken == nil,
+           stored != desired?.deviceToken {
+            try await apiClient.unregisterPush(
+                PushUnregisterPayload(projectKey: projectKey, deviceToken: stored)
+            )
+            UserDefaults.standard.removeObject(forKey: Self.registeredDeviceKey)
+            registeredPush = nil
+        }
+        guard let desired, desired != registeredPush else { return }
+        // Registering moves the device to the new identity on the server. The
+        // chat token is the current one, so this also runs App Attest first if
+        // the project requires it.
+        try await withChat { api, _ in
+            try await api.registerPush(desired.payload(projectKey: self.projectKey))
+        }
+        registeredPush = desired
+        UserDefaults.standard.set(desired.deviceToken, forKey: Self.registeredDeviceKey)
+    }
+
+    private static let registeredDeviceKey = "com.seggwat.sdk.pushDevice"
+
+    /// The APNs environment this build's device tokens belong to. Read from
+    /// the `aps-environment` entitlement in the embedded provisioning profile:
+    /// Xcode builds are signed for development (sandbox); App Store and
+    /// TestFlight builds have no embedded profile and use production.
+    nonisolated static let apnsEnvironment: String = {
+        guard let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
+              let data = try? Data(contentsOf: url) else {
+            return "production"
+        }
+        return apsEnvironment(inProvisioningProfile: data) == "development" ? "sandbox" : "production"
+    }()
+
+    /// The `aps-environment` entitlement of a provisioning profile (a signed
+    /// CMS blob around a plain-text plist).
+    nonisolated static func apsEnvironment(inProvisioningProfile data: Data) -> String? {
+        guard let text = String(data: data, encoding: .isoLatin1),
+              let start = text.range(of: "<?xml"),
+              let end = text.range(of: "</plist>", range: start.lowerBound..<text.endIndex),
+              let plist = try? PropertyListSerialization.propertyList(
+                  from: Data(text[start.lowerBound..<end.upperBound].utf8), format: nil
+              ) as? [String: Any],
+              let entitlements = plist["Entitlements"] as? [String: Any] else {
+            return nil
+        }
+        return entitlements["aps-environment"] as? String
     }
 }
 

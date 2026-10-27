@@ -5,12 +5,15 @@ import SwiftUI
 /// (`SeggWat.presentChat()`) or pushed from the feedback form.
 struct SeggWatChatView: View {
     @EnvironmentObject private var seggwat: SeggWat
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var messages: [ChatMessage] = []
     @State private var draft = ""
     @State private var isLoading = true
     @State private var isSending = false
     @State private var errorMessage: String?
+    /// The chat identity `messages` belong to.
+    @State private var shownIdentity: Int?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -19,8 +22,20 @@ struct SeggWatChatView: View {
         }
         .navigationTitle(seggwat.localizedString("chat_title"))
         .navigationBarTitleDisplayMode(.inline)
-        .task { await loadHistory() }
-        .task { await listenForReplies() }
+        // Restarts for a new identity, and stops in the background so the
+        // server doesn't mark replies read (and skip the push) while the user
+        // is elsewhere.
+        .task(id: ChatSession(identity: seggwat.chatIdentity, isActive: scenePhase == .active)) {
+            if shownIdentity != seggwat.chatIdentity {
+                shownIdentity = seggwat.chatIdentity
+                messages = []
+                draft = ""
+                errorMessage = nil
+                isLoading = true
+            }
+            guard scenePhase == .active else { return }
+            await listenForReplies()
+        }
     }
 
     private var messageList: some View {
@@ -97,13 +112,13 @@ struct SeggWatChatView: View {
         .background(.bar)
     }
 
-    private func loadHistory() async {
-        do {
-            messages = try await seggwat.chatHistory()
-            errorMessage = nil
-        } catch {
-            errorMessage = seggwat.localizedString("chat_error_load")
-        }
+    /// Load the history and merge it with what's on screen, keeping messages
+    /// the stream delivered meanwhile.
+    private func loadHistory() async throws {
+        let history = try await seggwat.chatHistory()
+        let ids = Set(history.map(\.id))
+        messages = history + messages.filter { !ids.contains($0.id) }
+        errorMessage = nil
         isLoading = false
     }
 
@@ -115,6 +130,7 @@ struct SeggWatChatView: View {
             messages.append(message)
             draft = ""
             errorMessage = nil
+        } catch is CancellationError {
         } catch {
             errorMessage = seggwat.localizedString("chat_error_send")
         }
@@ -122,35 +138,57 @@ struct SeggWatChatView: View {
 
     /// Hold the SSE stream open while the view is visible, reconnecting after
     /// a drop with exponential backoff (3s doubling to 60s), so a rate-limited
-    /// or offline client doesn't hammer the server. The `.task` modifier
-    /// cancels this when it disappears.
+    /// or offline client doesn't hammer the server. The history loads while
+    /// the stream connects (which can take until the first keep-alive), and
+    /// once more after, so no reply falls between the two. The `.task`
+    /// modifier cancels this when it disappears.
     private func listenForReplies() async {
         var failures = 0
         while !Task.isCancelled {
             do {
+                async let connecting = seggwat.chatStream()
+                try await loadHistory()
+                let stream = try await connecting
+                try await loadHistory()
+                failures = 0
                 var parser = ChatStreamParser()
-                for try await line in try await seggwat.chatStream().lines {
-                    failures = 0
+                for try await line in stream.lines {
                     switch parser.consume(line) {
                     case .message(let message):
                         if !messages.contains(where: { $0.id == message.id }) {
                             messages.append(message)
                         }
                     case .resync:
-                        await loadHistory()
+                        try await loadHistory()
                     case nil:
                         break
                     }
                 }
+            } catch is CancellationError {
+                return
             } catch SeggWatError.chatTokenInvalid, SeggWatError.chatTokenMissing,
                     SeggWatError.attestationUnsupported, SeggWatError.attestationFailed {
+                showLoadErrorIfLoading()
                 return
-            } catch {}
-            // Catch up on anything sent while disconnected, then reconnect.
+            } catch {
+                // Show the history even while the stream can't connect.
+                if isLoading { try? await loadHistory() }
+                showLoadErrorIfLoading()
+            }
             let delay = min(3 << min(failures, 5), 60)
             failures += 1
             try? await Task.sleep(nanoseconds: UInt64(delay) * 1_000_000_000)
-            if !Task.isCancelled { await loadHistory() }
         }
     }
+
+    private func showLoadErrorIfLoading() {
+        guard isLoading, !Task.isCancelled else { return }
+        errorMessage = seggwat.localizedString("chat_error_load")
+        isLoading = false
+    }
+}
+
+private struct ChatSession: Equatable {
+    let identity: Int
+    let isActive: Bool
 }

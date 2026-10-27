@@ -102,3 +102,15 @@ struct PushTokenPayload: Encodable {
         case environment
     }
 }
+
+/// Removes a device from push. The device token alone authorizes it, so a
+/// sign-out still goes through after the chat token expired.
+struct PushUnregisterPayload: Encodable {
+    let projectKey: String
+    let deviceToken: String
+
+    enum CodingKeys: String, CodingKey {
+        case projectKey = "project_key"
+        case deviceToken = "device_token"
+    }
+}

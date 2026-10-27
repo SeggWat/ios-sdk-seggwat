@@ -15,8 +15,9 @@ enum AppAttest {
         do {
             let keyId = try await service.generateKey()
             let challenge = try await apiClient.attestChallenge(projectKey: projectKey)
-            let attestation = try await service.attestKey(
-                keyId,
+            let attestation = try await attestKey(
+                service,
+                keyId: keyId,
                 clientDataHash: clientDataHash(challenge: challenge, token: token)
             )
             try await apiClient.submitAttestation(AttestPayload(
@@ -28,8 +29,31 @@ enum AppAttest {
             ))
         } catch let error as SeggWatError {
             throw error
+        } catch let error as DCError where error.code == .serverUnavailable {
+            // Apple's servers are down: a network-style error, so callers
+            // retry later instead of giving up.
+            throw SeggWatError.networkError(error.localizedDescription)
         } catch {
             throw SeggWatError.attestationFailed(error.localizedDescription)
+        }
+    }
+
+    /// Attest the key, retrying while Apple's servers are unavailable. Apple
+    /// asks to retry with the same key and client data hash. Gives up after
+    /// about 7 seconds, well inside the challenge's 5 minutes.
+    private static func attestKey(
+        _ service: DCAppAttestService,
+        keyId: String,
+        clientDataHash: Data
+    ) async throws -> Data {
+        var delay: UInt64 = 1
+        while true {
+            do {
+                return try await service.attestKey(keyId, clientDataHash: clientDataHash)
+            } catch let error as DCError where error.code == .serverUnavailable && delay <= 4 {
+                try await Task.sleep(nanoseconds: delay * 1_000_000_000)
+                delay *= 2
+            }
         }
     }
 

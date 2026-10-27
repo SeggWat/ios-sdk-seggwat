@@ -138,8 +138,8 @@ final class APIClient: Sendable {
         try await postNoContent("api/v1/chat/push/register", payload)
     }
 
-    /// Stop push notifications for this identity on this device.
-    func unregisterPush(_ payload: PushTokenPayload) async throws {
+    /// Stop push notifications on this device.
+    func unregisterPush(_ payload: PushUnregisterPayload) async throws {
         try await postNoContent("api/v1/chat/push/unregister", payload)
     }
 

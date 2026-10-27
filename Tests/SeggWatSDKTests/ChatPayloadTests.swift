@@ -63,7 +63,35 @@ final class PushTests: XCTestCase {
         XCTAssertEqual(json["project_key"] as? String, "key")
         XCTAssertEqual(json["token"] as? String, "dev_x")
         XCTAssertEqual(json["device_token"] as? String, "abcd")
-        XCTAssertEqual(json["environment"] as? String, "sandbox") // tests build in Debug
+        // The test host has no provisioning profile.
+        XCTAssertEqual(json["environment"] as? String, "production")
+    }
+
+    func testUnregisterSendsOnlyTheDeviceToken() throws {
+        let payload = PushUnregisterPayload(projectKey: "key", deviceToken: "abcd")
+        let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(payload)) as! [String: Any]
+        XCTAssertEqual(json as? [String: String], ["project_key": "key", "device_token": "abcd"])
+    }
+
+    func testReadsApsEnvironmentFromProvisioningProfile() {
+        func profile(_ environment: String) -> Data {
+            Data(("\u{30}\u{82}binary-cms-header<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<plist version=\"1.0\"><dict><key>Entitlements</key><dict>"
+                + "<key>aps-environment</key><string>\(environment)</string>"
+                + "</dict></dict></plist>\u{a0}signature").utf8)
+        }
+        XCTAssertEqual(SeggWat.apsEnvironment(inProvisioningProfile: profile("development")), "development")
+        XCTAssertEqual(SeggWat.apsEnvironment(inProvisioningProfile: profile("production")), "production")
+        XCTAssertNil(SeggWat.apsEnvironment(inProvisioningProfile: Data("garbage".utf8)))
+    }
+
+    func testChatSubjectIgnoresTokenRefresh() {
+        // {"sub":"user-1","iat":1} and {"sub":"user-1","iat":2}
+        let first = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpYXQiOjF9.sig1"
+        let refreshed = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEiLCJpYXQiOjJ9.sig2"
+        XCTAssertEqual(SeggWat.chatSubject(first), "user-1")
+        XCTAssertEqual(SeggWat.chatSubject(first), SeggWat.chatSubject(refreshed))
+        XCTAssertEqual(SeggWat.chatSubject("dev_abc"), "dev_abc")
     }
 
     @MainActor

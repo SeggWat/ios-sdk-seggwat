@@ -31,10 +31,14 @@ struct SeggWatFeedbackModifier: ViewModifier {
                 }
                 .environmentObject(seggwat)
             }
-            .task { await seggwat.refreshUnreadCount() }
-            .onChange(of: scenePhase) { phase in
-                if phase == .active {
-                    Task { await seggwat.refreshUnreadCount() }
+            // While in the foreground: retry a pending push sync, and keep the
+            // unread badge current with a poll every minute.
+            .task(id: scenePhase) {
+                guard scenePhase == .active else { return }
+                Task { await seggwat.syncPushRegistration() }
+                while !Task.isCancelled {
+                    await seggwat.refreshUnreadCount()
+                    try? await Task.sleep(nanoseconds: 60_000_000_000)
                 }
             }
     }

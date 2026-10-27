@@ -42,6 +42,10 @@ public final class SeggWat: ObservableObject {
     /// badge on the floating button.
     @Published public private(set) var unreadCount = 0
 
+    /// Bumped whenever the chat identity changes, so views and requests of the
+    /// previous user are dropped.
+    @Published private(set) var chatIdentity = 0
+
     /// Whether chat is usable, i.e. an end-user token has been set.
     public var isChatAvailable: Bool { chatToken != nil }
 
@@ -56,6 +60,10 @@ public final class SeggWat: ObservableObject {
     var pushDeviceToken: String?
     /// The device token and chat identity last registered with the server.
     var registeredPush: PushRegistration?
+    var pushSyncRunning = false
+    var pushSyncNeeded = false
+    /// A notification was tapped before the chat identity was set.
+    var pendingChatOpen = false
     private(set) var apiClient: APIClient?
     let rateLimiter = RateLimiter()
 
@@ -93,13 +101,42 @@ public final class SeggWat: ObservableObject {
     /// https://seggwat.com/docs/features/portal-authentication. Pass `nil` on
     /// sign-out.
     public static func setChatToken(_ token: String?) {
-        shared.chatToken = token
-        shared.unreadCount = 0
+        let instance = shared
+        // A refreshed token for the same user keeps the open chat.
+        if token.map(chatSubject) != instance.chatToken.map(chatSubject) {
+            instance.chatIdentity += 1
+            instance.unreadCount = 0
+            if token == nil {
+                instance.isChatPresented = false
+                instance.pendingChatOpen = false
+            }
+        }
+        instance.chatToken = token
         if token != nil {
-            Task { await shared.refreshUnreadCount() }
+            Task { await instance.refreshUnreadCount() }
+            if instance.pendingChatOpen {
+                instance.pendingChatOpen = false
+                instance.isChatPresented = true
+            }
         }
         // Move push to the new identity, or stop it on sign-out.
-        Task { await shared.syncPushRegistration() }
+        Task { await instance.syncPushRegistration() }
+    }
+
+    /// The user a chat token identifies: the JWT's `sub`, or the anonymous
+    /// token itself.
+    nonisolated static func chatSubject(_ token: String) -> String {
+        let parts = token.split(separator: ".")
+        guard parts.count == 3 else { return token }
+        var base64 = parts[1].replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        base64 += String(repeating: "=", count: (4 - base64.count % 4) % 4)
+        guard let data = Data(base64Encoded: base64),
+              let claims = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let sub = claims["sub"] as? String else {
+            return token
+        }
+        return sub
     }
 
     /// Enable the support chat for an anonymous user, for apps with no backend
@@ -276,28 +313,33 @@ public final class SeggWat: ObservableObject {
     /// Refresh `unreadCount` from the server. Read-only: it does not mark
     /// replies read or count as the user being in the chat.
     public func refreshUnreadCount() async {
+        let identity = chatIdentity
         if let count = try? await withChat({ api, token in
             try await api.chatUnread(projectKey: self.projectKey, token: token)
-        }) {
+        }), identity == chatIdentity {
             unreadCount = count
         }
     }
 
     func chatHistory() async throws -> [ChatMessage] {
+        let identity = chatIdentity
         let messages = try await withChat { api, token in
             try await api.chatHistory(projectKey: self.projectKey, token: token)
         }
+        guard identity == chatIdentity else { throw CancellationError() }
         unreadCount = 0
         return messages
     }
 
     func sendChatMessage(_ body: String) async throws -> ChatMessage {
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        let identity = chatIdentity
         let id = try await withChat { api, token in
             try await api.sendChatMessage(
                 SendChatPayload(projectKey: self.projectKey, token: token, body: trimmed)
             )
         }
+        guard identity == chatIdentity else { throw CancellationError() }
         // Ask for notification permission once the user has something to wait for.
         Task { await requestPushPermissionIfNeeded() }
         return ChatMessage(
