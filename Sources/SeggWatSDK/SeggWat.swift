@@ -331,12 +331,17 @@ public final class SeggWat: ObservableObject {
         return messages
     }
 
-    func sendChatMessage(_ body: String) async throws -> ChatMessage {
+    func sendChatMessage(_ body: String, replyTo: ChatReplyTo? = nil) async throws -> ChatMessage {
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
         let identity = chatIdentity
         let id = try await withChat { api, token in
             try await api.sendChatMessage(
-                SendChatPayload(projectKey: self.projectKey, token: token, body: trimmed)
+                SendChatPayload(
+                    projectKey: self.projectKey,
+                    token: token,
+                    body: trimmed,
+                    replyToId: replyTo?.messageId
+                )
             )
         }
         guard identity == chatIdentity else { throw CancellationError() }
@@ -346,7 +351,8 @@ public final class SeggWat: ObservableObject {
             id: id,
             sender: .you,
             body: trimmed,
-            createdAt: ISO8601DateFormatter().string(from: Date())
+            createdAt: ISO8601DateFormatter().string(from: Date()),
+            replyTo: replyTo
         )
     }
 

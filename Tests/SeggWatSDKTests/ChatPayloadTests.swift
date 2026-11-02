@@ -10,9 +10,16 @@ final class ChatPayloadTests: XCTestCase {
         XCTAssertEqual(json["project_key"] as? String, "key")
         XCTAssertEqual(json["token"] as? String, "jwt")
         XCTAssertEqual(json["body"] as? String, "Hi")
+        XCTAssertNil(json["reply_to_id"])
     }
 
-    func testHistoryDecodingIgnoresReplyTo() throws {
+    func testSendPayloadEncodesReplyToId() throws {
+        let payload = SendChatPayload(projectKey: "key", token: "jwt", body: "Hi", replyToId: "m1")
+        let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(payload)) as! [String: Any]
+        XCTAssertEqual(json["reply_to_id"] as? String, "m1")
+    }
+
+    func testHistoryDecodingReadsReplyTo() throws {
         let json = """
         {"conversation_id":"c1","messages":[
           {"id":"m1","sender":"you","body":"Hello","created_at":"2026-10-26T10:00:00+00:00"},
@@ -25,6 +32,48 @@ final class ChatPayloadTests: XCTestCase {
         XCTAssertEqual(response.messages.map(\.id), ["m1", "m2"])
         XCTAssertEqual(response.messages[0].sender, .you)
         XCTAssertEqual(response.messages[1].sender, .team)
+        XCTAssertNil(response.messages[0].replyTo)
+        XCTAssertEqual(response.messages[1].replyTo, ChatReplyTo(messageId: "m1", sender: .you, snippet: "Hello"))
+    }
+
+    func testStreamParserDecodesReplyTo() {
+        var parser = ChatStreamParser()
+        let event = parser.consume(#"data: {"id":"m5","sender":"team","body":"Yes","created_at":"t","reply_to":{"message_id":"m1","sender":"you","snippet":"Hello"}}"#)
+        let quote = ChatReplyTo(messageId: "m1", sender: .you, snippet: "Hello")
+        XCTAssertEqual(event, .message(ChatMessage(id: "m5", sender: .team, body: "Yes", createdAt: "t", replyTo: quote)))
+    }
+
+    func testCreatedDateParsesWithAndWithoutFractionalSeconds() {
+        let plain = ChatMessage(id: "a", sender: .you, body: "", createdAt: "2026-10-26T10:00:00+00:00")
+        let fractional = ChatMessage(id: "b", sender: .you, body: "", createdAt: "2026-10-26T10:00:00.123456789+00:00")
+        XCTAssertEqual(plain.createdDate, Date(timeIntervalSince1970: 1_793_008_800))
+        XCTAssertEqual(fractional.createdDate!.timeIntervalSince1970, 1_793_008_800.123, accuracy: 0.001)
+        XCTAssertNil(ChatMessage(id: "c", sender: .you, body: "", createdAt: "t").createdDate)
+    }
+
+    func testQuoteCollapsesAndTruncatesBody() {
+        let short = ChatReplyTo(quoting: ChatMessage(id: "m1", sender: .team, body: "  Hi\n\nthere  ", createdAt: "t"))
+        XCTAssertEqual(short, ChatReplyTo(messageId: "m1", sender: .team, snippet: "Hi there"))
+        let long = ChatReplyTo(quoting: ChatMessage(id: "m2", sender: .you, body: String(repeating: "a", count: 200), createdAt: "t"))
+        XCTAssertEqual(long.snippet, String(repeating: "a", count: 140) + "…")
+    }
+
+    func testBodyLengthCountsUnicodeScalarsOfTrimmedText() {
+        XCTAssertEqual(ChatBody.length("  hi \n"), 2)
+        // One scalar each, though two UTF-16 units.
+        XCTAssertEqual(ChatBody.length("😀😀"), 2)
+        XCTAssertEqual(ChatBody.length(String(repeating: "x", count: 5001)), 5001)
+    }
+
+    func testRejectionCarriesServerMessage() {
+        let data = Data(#"{"error":"You're sending messages too quickly. Please wait a moment."}"#.utf8)
+        XCTAssertEqual(
+            SeggWatError.chatRejection(statusCode: 429, data: data),
+            .chatMessageRejected("You're sending messages too quickly. Please wait a moment.")
+        )
+        XCTAssertEqual(SeggWatError.chatRejection(statusCode: 400, data: Data(#"{"error":"Too long"}"#.utf8)), .chatMessageRejected("Too long"))
+        XCTAssertNil(SeggWatError.chatRejection(statusCode: 500, data: data))
+        XCTAssertNil(SeggWatError.chatRejection(statusCode: 400, data: Data("oops".utf8)))
     }
 
     func testStreamParserDeliversTeamMessage() {
@@ -51,6 +100,56 @@ final class ChatPayloadTests: XCTestCase {
 
     func testUnauthorizedMapsToInvalidToken() {
         XCTAssertEqual(SeggWatError.fromHTTPStatus(401), .chatTokenInvalid)
+    }
+}
+
+final class ChatThreadTests: XCTestCase {
+
+    private func message(_ id: String, _ sender: ChatMessage.Sender = .you) -> ChatMessage {
+        ChatMessage(id: id, sender: sender, body: "body \(id)", createdAt: "t")
+    }
+
+    func testPendingSendSwapsToServerId() {
+        var thread = ChatThread()
+        let localId = thread.addPending(body: "Hi", replyTo: nil)
+        XCTAssertEqual(thread.rows.map(\.state), [.pending])
+
+        thread.markSent(localId, as: message("m1"))
+        XCTAssertEqual(thread.rows.map(\.id), ["m1"])
+        XCTAssertEqual(thread.rows.map(\.state), [.sent])
+    }
+
+    func testSendConfirmedAfterHistoryHasItKeepsOneRow() {
+        var thread = ChatThread()
+        let localId = thread.addPending(body: "Hi", replyTo: nil)
+        thread.merge(history: [message("m1")])
+        XCTAssertEqual(thread.rows.count, 2)
+
+        thread.markSent(localId, as: message("m1"))
+        XCTAssertEqual(thread.rows.map(\.id), ["m1"])
+    }
+
+    func testFailedSendKeepsReasonAndReplyContext() {
+        var thread = ChatThread()
+        let quote = ChatReplyTo(messageId: "m0", sender: .team, snippet: "Hello")
+        let localId = thread.addPending(body: "Hi", replyTo: quote)
+        thread.markFailed(localId, reason: "Too fast")
+
+        XCTAssertEqual(thread.rows[0].state, .failed)
+        XCTAssertEqual(thread.rows[0].failureReason, "Too fast")
+        XCTAssertEqual(thread.rows[0].message.replyTo, quote)
+
+        thread.remove(localId)
+        XCTAssertTrue(thread.rows.isEmpty)
+    }
+
+    func testMergeKeepsStreamedAndPendingRowsAndDedupes() {
+        var thread = ChatThread()
+        thread.receive(message("m2", .team))
+        thread.receive(message("m2", .team))
+        let localId = thread.addPending(body: "Hi", replyTo: nil)
+        thread.merge(history: [message("m1"), message("m2", .team)])
+        XCTAssertEqual(thread.rows.map(\.id), ["m1", "m2", localId])
     }
 }
 

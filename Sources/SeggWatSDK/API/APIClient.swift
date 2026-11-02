@@ -86,6 +86,10 @@ final class APIClient: Sendable {
         request.httpBody = try JSONEncoder().encode(payload)
 
         let (data, response) = try await performRequest(request)
+        if let status = (response as? HTTPURLResponse)?.statusCode,
+           let rejection = SeggWatError.chatRejection(statusCode: status, data: data) {
+            throw rejection
+        }
         try validateResponse(response, data: data)
         return try JSONDecoder().decode(SendChatResponse.self, from: data).messageId
     }

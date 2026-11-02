@@ -14,17 +14,71 @@ public struct ChatMessage: Decodable, Identifiable, Equatable, Sendable {
     public let body: String
     /// RFC 3339 timestamp, as sent by the server.
     public let createdAt: String
+    /// The message this one replies to, if any.
+    public let replyTo: ChatReplyTo?
 
     enum CodingKeys: String, CodingKey {
         case id, sender, body
         case createdAt = "created_at"
+        case replyTo = "reply_to"
     }
 
-    init(id: String, sender: Sender, body: String, createdAt: String) {
+    init(id: String, sender: Sender, body: String, createdAt: String, replyTo: ChatReplyTo? = nil) {
         self.id = id
         self.sender = sender
         self.body = body
         self.createdAt = createdAt
+        self.replyTo = replyTo
+    }
+
+    /// `createdAt` parsed, with or without fractional seconds.
+    var createdDate: Date? {
+        Self.fractionalFormatter.date(from: createdAt) ?? Self.formatter.date(from: createdAt)
+    }
+
+    private static let formatter = ISO8601DateFormatter()
+    private static let fractionalFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+}
+
+/// The quoted message a chat message replies to.
+public struct ChatReplyTo: Decodable, Equatable, Sendable {
+    public let messageId: String
+    public let sender: ChatMessage.Sender
+    /// A one-line preview of the quoted message.
+    public let snippet: String
+
+    enum CodingKeys: String, CodingKey {
+        case messageId = "message_id"
+        case sender, snippet
+    }
+
+    init(messageId: String, sender: ChatMessage.Sender, snippet: String) {
+        self.messageId = messageId
+        self.sender = sender
+        self.snippet = snippet
+    }
+
+    /// Quote `message`: its body collapsed to one line, cut at 140 characters.
+    init(quoting message: ChatMessage) {
+        let line = message.body.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        self.init(
+            messageId: message.id,
+            sender: message.sender,
+            snippet: line.count > 140 ? String(line.prefix(140)) + "…" : line
+        )
+    }
+}
+
+/// The server's limit on a message body, in Unicode scalars (Rust `chars()`).
+enum ChatBody {
+    static let maxLength = 5000
+
+    static func length(_ body: String) -> Int {
+        body.trimmingCharacters(in: .whitespacesAndNewlines).unicodeScalars.count
     }
 }
 
@@ -36,10 +90,12 @@ struct SendChatPayload: Encodable {
     let projectKey: String
     let token: String
     let body: String
+    var replyToId: String? = nil
 
     enum CodingKeys: String, CodingKey {
         case projectKey = "project_key"
         case token, body
+        case replyToId = "reply_to_id"
     }
 }
 
@@ -49,6 +105,10 @@ struct SendChatResponse: Decodable {
     enum CodingKeys: String, CodingKey {
         case messageId = "message_id"
     }
+}
+
+struct ChatErrorResponse: Decodable {
+    let error: String
 }
 
 struct ChatUnreadResponse: Decodable {

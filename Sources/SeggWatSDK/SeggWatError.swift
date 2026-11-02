@@ -41,6 +41,9 @@ public enum SeggWatError: LocalizedError, Equatable {
     case attestationUnsupported
     /// App Attest failed on the device or was rejected by the server.
     case attestationFailed(String)
+    /// Server returned 400 or 429 for a chat message, with its reason
+    /// (e.g. too long, or sending too quickly), fit to show the user.
+    case chatMessageRejected(String)
 
     public var errorDescription: String? {
         switch self {
@@ -82,6 +85,8 @@ public enum SeggWatError: LocalizedError, Equatable {
             return "App Attest is not available on this device, e.g. the iOS Simulator."
         case .attestationFailed(let reason):
             return "App Attest failed: \(reason)"
+        case .chatMessageRejected(let reason):
+            return reason
         }
     }
 
@@ -98,6 +103,14 @@ public enum SeggWatError: LocalizedError, Equatable {
         case 415: return .unsupportedMediaType
         default: return .serverError(statusCode: statusCode, message: message)
         }
+    }
+
+    /// The server's reason for rejecting a chat message (400 or 429), if it gave one.
+    static func chatRejection(statusCode: Int, data: Data) -> SeggWatError? {
+        guard statusCode == 400 || statusCode == 429,
+              let reason = try? JSONDecoder().decode(ChatErrorResponse.self, from: data).error
+        else { return nil }
+        return .chatMessageRejected(reason)
     }
 
     public static func == (lhs: SeggWatError, rhs: SeggWatError) -> Bool {
@@ -123,6 +136,8 @@ public enum SeggWatError: LocalizedError, Equatable {
         case (.rateLimited(let a), .rateLimited(let b)):
             return a == b
         case (.attestationFailed(let a), .attestationFailed(let b)):
+            return a == b
+        case (.chatMessageRejected(let a), .chatMessageRejected(let b)):
             return a == b
         case (.networkError(let a), .networkError(let b)):
             return a == b

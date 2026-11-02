@@ -51,4 +51,10 @@
 "chat_send" = "Senden";
 "chat_unread" = "%d ungelesene Antworten";
 "chat_error_load" = "Nachrichten konnten nicht geladen werden. Prüfen Sie Ihre Verbindung.";
-"chat_error_send" = "Ihre Nachricht konnte nicht gesendet werden. Bitte versuchen Sie es erneut.";
+"chat_sender_you" = "Sie";
+"chat_sender_team" = "Team";
+"chat_reply" = "Antworten";
+"chat_replying_to" = "Antwort an %@";
+"chat_reply_cancel" = "Antwort abbrechen";
+"chat_send_failed" = "Nicht zugestellt. Zum Wiederholen tippen";
+"chat_too_long" = "Nachricht zu lang (%d/%d)";

@@ -51,4 +51,10 @@
 "chat_send" = "Send";
 "chat_unread" = "%d unread replies";
 "chat_error_load" = "Couldn't load messages. Check your connection.";
-"chat_error_send" = "Couldn't send your message. Please try again.";
+"chat_sender_you" = "You";
+"chat_sender_team" = "Team";
+"chat_reply" = "Reply";
+"chat_replying_to" = "Replying to %@";
+"chat_reply_cancel" = "Cancel reply";
+"chat_send_failed" = "Not delivered. Tap to retry";
+"chat_too_long" = "Message too long (%d/%d)";

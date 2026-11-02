@@ -51,4 +51,10 @@
 "chat_send" = "Skicka";
 "chat_unread" = "%d olästa svar";
 "chat_error_load" = "Det gick inte att ladda meddelanden. Kontrollera din anslutning.";
-"chat_error_send" = "Det gick inte att skicka ditt meddelande. Försök igen.";
+"chat_sender_you" = "Du";
+"chat_sender_team" = "Team";
+"chat_reply" = "Svara";
+"chat_replying_to" = "Svar till %@";
+"chat_reply_cancel" = "Avbryt svar";
+"chat_send_failed" = "Inte levererat. Tryck för att försöka igen";
+"chat_too_long" = "Meddelandet är för långt (%d/%d)";

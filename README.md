@@ -241,7 +241,7 @@ func userNotificationCenter(_ center: UNUserNotificationCenter,
 
 The SDK asks for notification permission after the user's first chat message, and SeggWat only pushes a reply the user hasn't already seen in an open chat. See the [iOS SDK guide](https://seggwat.com/docs/guides/ios-sdk#push-notifications-for-replies).
 
-With a token set, the feedback form shows a **Chat with us** button, and tapping the floating button while a reply is unread opens the conversation. `SeggWat.shared.unreadCount` is published if you want your own badge.
+With a token set, the feedback form shows a **Chat with us** button, and tapping the floating button while a reply is unread opens the conversation. `SeggWat.shared.unreadCount` is published if you want your own badge. Users can long-press a message to reply to it with a quote.
 
 <a name="screenshots"></a>
 ## Screenshot Capture & Annotation
