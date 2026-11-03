@@ -91,11 +91,62 @@ struct SendChatPayload: Encodable {
     let token: String
     let body: String
     var replyToId: String? = nil
+    var context: ChatClientContext? = nil
 
     enum CodingKeys: String, CodingKey {
         case projectKey = "project_key"
         case token, body
         case replyToId = "reply_to_id"
+        case context
+    }
+}
+
+/// The app and device a chat message comes from, shown to the team in the
+/// SeggWat inbox so they don't have to ask which version the user is on.
+struct ChatClientContext: Encodable, Equatable {
+    var platform = "ios"
+    var appVersion: String?
+    var build: String?
+    var osVersion: String?
+    var deviceModel: String?
+    var locale: String?
+
+    enum CodingKeys: String, CodingKey {
+        case platform
+        case appVersion = "app_version"
+        case build
+        case osVersion = "os_version"
+        case deviceModel = "device_model"
+        case locale
+    }
+
+    /// The running app and device. `appVersion` is the configured version,
+    /// which defaults to the bundle's.
+    static func current(appVersion: String?) -> ChatClientContext {
+        let os = ProcessInfo.processInfo.operatingSystemVersion
+        let osVersion = os.patchVersion > 0
+            ? "\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)"
+            : "\(os.majorVersion).\(os.minorVersion)"
+        return ChatClientContext(
+            appVersion: appVersion,
+            build: Bundle.main.infoDictionary?["CFBundleVersion"] as? String,
+            osVersion: osVersion,
+            deviceModel: deviceModel(),
+            locale: Locale.current.identifier
+        )
+    }
+
+    /// Hardware identifier such as `iPhone16,2`; the simulated device's on a simulator.
+    private static func deviceModel() -> String? {
+        if let simulated = ProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"] {
+            return simulated
+        }
+        var info = utsname()
+        uname(&info)
+        let model = withUnsafeBytes(of: &info.machine) { buffer in
+            String(decoding: buffer.prefix(while: { $0 != 0 }), as: UTF8.self)
+        }
+        return model.isEmpty ? nil : model
     }
 }
 

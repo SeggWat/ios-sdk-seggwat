@@ -19,6 +19,28 @@ final class ChatPayloadTests: XCTestCase {
         XCTAssertEqual(json["reply_to_id"] as? String, "m1")
     }
 
+    func testSendPayloadEncodesClientContext() throws {
+        let context = ChatClientContext(appVersion: "1.4.2", build: "87", osVersion: "26.1",
+                                        deviceModel: "iPhone16,2", locale: "de_DE")
+        let payload = SendChatPayload(projectKey: "key", token: "jwt", body: "Hi", context: context)
+        let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(payload)) as! [String: Any]
+        let ctx = try XCTUnwrap(json["context"] as? [String: Any])
+        XCTAssertEqual(ctx["platform"] as? String, "ios")
+        XCTAssertEqual(ctx["app_version"] as? String, "1.4.2")
+        XCTAssertEqual(ctx["build"] as? String, "87")
+        XCTAssertEqual(ctx["os_version"] as? String, "26.1")
+        XCTAssertEqual(ctx["device_model"] as? String, "iPhone16,2")
+        XCTAssertEqual(ctx["locale"] as? String, "de_DE")
+    }
+
+    func testCurrentClientContextDescribesThisDevice() {
+        let context = ChatClientContext.current(appVersion: "2.0")
+        XCTAssertEqual(context.platform, "ios")
+        XCTAssertEqual(context.appVersion, "2.0")
+        XCTAssertNotNil(context.osVersion)
+        XCTAssertNotNil(context.deviceModel)
+    }
+
     func testHistoryDecodingReadsReplyTo() throws {
         let json = """
         {"conversation_id":"c1","messages":[

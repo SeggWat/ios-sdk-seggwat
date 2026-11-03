@@ -334,13 +334,15 @@ public final class SeggWat: ObservableObject {
     func sendChatMessage(_ body: String, replyTo: ChatReplyTo? = nil) async throws -> ChatMessage {
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
         let identity = chatIdentity
+        let context = ChatClientContext.current(appVersion: options.appVersion)
         let id = try await withChat { api, token in
             try await api.sendChatMessage(
                 SendChatPayload(
                     projectKey: self.projectKey,
                     token: token,
                     body: trimmed,
-                    replyToId: replyTo?.messageId
+                    replyToId: replyTo?.messageId,
+                    context: context
                 )
             )
         }
